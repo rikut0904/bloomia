@@ -1,0 +1,27 @@
+# Rust
+/backend/target/
+/backend/.cargo/
+/backend/Cargo.lock
+
+# Next.js
+/frontend/.next/
+/frontend/node_modules/
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.production.local
+
+# Docker
+**/.env
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# OS / エディタ
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
