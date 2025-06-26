@@ -1,0 +1,12 @@
+.
+├── README.md
+├── docker
+│   ├── backend.Dockerfile
+│   └── frontend.Dockerfile
+├── docker-compose.yml
+├── projectTree.txt
+└── system_img
+    ├── Bloomia_DB.png
+    └── Bloomia_system.png
+
+3 directories, 7 files

@@ -1,0 +1,51 @@
+.app-main {
+    font-family: 'Arial', sans-serif;
+    background-color: #f0f0ff;
+    min-height: 100vh;
+    padding: 4rem;
+    text-align: center;
+  }
+  
+  .app-main h1 {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 2rem;
+  }
+  
+  .app-link {
+    margin-top: 2rem;
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: #6c63ff;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+  }
+  
+  .app-link:hover {
+    background: #5348c7;
+  }
+  
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .login-form input {
+    padding: 0.8rem 1rem;
+    width: 300px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+  
+  .login-form button {
+    padding: 0.8rem 2rem;
+    background: #6c63ff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+  }
+  
