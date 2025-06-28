@@ -1,7 +1,7 @@
-import "../styles/webSite.css";
+import "@/styles/web.css";
 import Link from "next/link";
 
-export default function MarketingPage() {
+export default function RootPage() {
   return (
     <main className="website-main">
       <header className="website-header">

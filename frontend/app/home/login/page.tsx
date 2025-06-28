@@ -1,15 +1,17 @@
-import Link from "next/link";
+"use client";
+
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   return (
     <main className="app-main">
-      <h1>ログイン</h1>
-      <form className="login-form">
-        <input type="email" placeholder="メールアドレス" required />
-        <input type="password" placeholder="パスワード" required />
-      <Link href="/home/" className="app-link">ログイン</Link>
-      </form>
-      <Link href="/" className="app-link">ホームに戻る</Link>
+      <h1 className="text-3xl font-bold mb-8">ログイン</h1>
+      <button
+        onClick={() => signIn("google", { callbackUrl: "/home" })}
+        className="app-link"
+      >
+        Googleでログイン
+      </button>
     </main>
   );
 }

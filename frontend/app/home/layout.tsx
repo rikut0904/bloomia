@@ -1,9 +1,14 @@
-import "../../styles/app.css";
+"use client";
 
-export default function HomeLayout({ children }: { children: React.ReactNode }) {
+import "@/styles/app.css";
+import { SessionProvider } from "next-auth/react";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div>
-      {children}
+    <div className="app-main">
+      <SessionProvider>
+        {children}
+      </SessionProvider>
     </div>
   );
 }

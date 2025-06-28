@@ -1,18 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 .app-main {
     font-family: 'Arial', sans-serif;
     background-color: #f0f0ff;
     min-height: 100vh;
     padding: 4rem;
     text-align: center;
-  }
-  
-  .app-main h1 {
+}
+
+.app-main h1 {
     font-size: 2.5rem;
     color: #333;
     margin-bottom: 2rem;
-  }
-  
-  .app-link {
+}
+
+.app-link {
     margin-top: 2rem;
     display: inline-block;
     padding: 1rem 2rem;
@@ -20,32 +24,60 @@
     color: white;
     border-radius: 8px;
     text-decoration: none;
-  }
-  
-  .app-link:hover {
+}
+
+.app-link:hover {
     background: #5348c7;
-  }
-  
-  .login-form {
+}
+
+.login-form {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-  }
-  
-  .login-form input {
+}
+
+.login-form input {
     padding: 0.8rem 1rem;
     width: 300px;
     border-radius: 5px;
     border: 1px solid #ccc;
-  }
-  
-  .login-form button {
+}
+
+.login-form button {
     padding: 0.8rem 2rem;
     background: #6c63ff;
     color: white;
     border: none;
     border-radius: 5px;
     font-weight: bold;
-  }
-  
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    justify-items: center;
+}
+
+.card-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    background-color: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 80%;
+    text-decoration: none;
+    color: #333;
+    font-size: 1.1rem;
+    font-weight: 600;
+    transition: all 0.2s ease-in-out;
+}
+
+.card-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
