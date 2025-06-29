@@ -4,8 +4,8 @@
 
 @layer base {
     :root {
-        --background: #f5f5fa;
-        --foreground: #1a1a1a;
+        --background: #f9f9fb;
+        --foreground: #1e1e1e;
         --primary: #7c3aed;
         --primary-light: #ede9fe;
     }
@@ -25,8 +25,7 @@
 .app-main {
     font-family: 'Arial', sans-serif;
     background-color: #f0f0ff;
-    min-height: 100vh;
-    padding: 2rem;
+    padding: 0.5rem;
     text-align: center;
 }
 
