@@ -2,11 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+    :root {
+        --background: #f9f9fb;
+        --foreground: #1e1e1e;
+        --primary: #7c3aed;
+        --primary-light: #ede9fe;
+    }
+
+    .dark {
+        --background: #121212;
+        --foreground: #f5f5f5;
+        --primary: #c084fc;
+        --primary-light: #2a2a2a;
+    }
+
+    body {
+        @apply bg-background text-foreground transition-colors duration-300;
+    }
+}
+
 .app-main {
     font-family: 'Arial', sans-serif;
     background-color: #f0f0ff;
-    min-height: 100vh;
-    padding: 4rem;
+    padding: 0.5rem;
     text-align: center;
 }
 
@@ -35,49 +54,4 @@
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-}
-
-.login-form input {
-    padding: 0.8rem 1rem;
-    width: 300px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-}
-
-.login-form button {
-    padding: 0.8rem 2rem;
-    background: #6c63ff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-.card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 2rem;
-    justify-items: center;
-}
-
-.card-button {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem;
-    background-color: #ffffff;
-    border-radius: 1rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    width: 100%;
-    max-width: 80%;
-    text-decoration: none;
-    color: #333;
-    font-size: 1.1rem;
-    font-weight: 600;
-    transition: all 0.2s ease-in-out;
-}
-
-.card-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
 }
