@@ -1,0 +1,6 @@
+フォルダー パスの一覧
+ボリューム シリアル番号は 0000-0000 です
+\\WSL.LOCALHOST\BLOOMIA\HOME\RIKUT0904\BLOOMIA\FRONTEND\-F
+無効なパスです - \HOME\RIKUT0904\BLOOMIA\FRONTEND\-F
+サブフォルダーは存在しません 
+
