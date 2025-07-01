@@ -7,7 +7,12 @@ export default function RootPage() {
       <header className="website-header">
         <h1>Bloomia - 学びが花開く場所</h1>
         <p>未来の教育を Bloomia で。</p>
-        <Link href="/home" className="cta-button">ログインはこちら</Link>
+        <Link
+          href="/api/auth/signin?callbackUrl=/home"
+          className="cta-button"
+        >
+          ログインはこちら
+        </Link>
       </header>
       <section className="features">
         <div>
