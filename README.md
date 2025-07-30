@@ -45,10 +45,10 @@ Bloomiaは、単なる「管理ツール」ではなく、
 ## 使用技術
 
 - フロントエンド: Next.js, Vercel
-- バックエンド: Rust, Railway, Redis
+- バックエンド: Go, Railway, Redis
 - データベース: PostgreSQL (Railway)
 - ストレージ: Firebase Cloud Storage
-- 認証: JWT, OAuth
+- 認証: Auth0
 - 開発環境: Ubuntu (WSL2), VSCode, Docker
 
 ---
@@ -61,20 +61,21 @@ Bloomiaは、単なる「管理ツール」ではなく、
 ### [Vercel](https://vercel.com/)  
 Next.jsとの親和性が高く、デプロイが容易なため。
 
-### [Rust](https://www.rust-lang.org/)  
-高いパフォーマンスとセキュリティを兼ね備えた高信頼なサーバ実装が可能なため。
-
-### [Railway](https://railway.app/)  
-デプロイやデータベース運用の簡便さを活かし、開発スピードを加速できるため。
+### [Go](https://go.dev/)  
+静的型付けとシンプルな構文により、高い保守性と安全性を保ちながら高速なAPIサーバの実装が可能です。
+並列処理（goroutine）を活かし、リアルタイム性の求められる通知機能やチャット機能にも適しています。
 
 ### [Redis](https://redis.io/)  
-キャッシュ管理による負荷分散と応答速度の高速化を実現するため。
+セッション管理・通知の一時バッファ・ランキング表示などに使用し、高速な読み書きによってシステムの応答性を向上させます。
+
+### [Railway](https://railway.app/)
+デプロイやデータベース運用の簡便さを生かし、開発スピードを加速できるため。
 
 ### [Firebase Cloud Storage](https://firebase.google.com/products/storage)  
-メディア・ドキュメント共有のためのストレージ運用を行うため。
+課題資料やチャットでの画像添付、教材のPDFなどをセキュアかつ簡易に保管・配信できるため採用した。
 
-### [JWT](https://jwt.io/), [OAuth](https://oauth.net/)  
-柔軟かつ安全なログイン認証を実現するため。
+### [Auth0](https://auth0.com/)  
+GoogleやMicrosoftアカウントなどのSSO連携をはじめ、柔軟な認可設定が可能で、教育機関に適した認証設計を実現するため。
 
 ### [Docker](https://www.docker.com/)  
 開発環境間の差異を抑え、効率的な開発・デプロイを可能にするため。
