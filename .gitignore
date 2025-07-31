@@ -1,0 +1,68 @@
+# ===============================
+# Node.js（Next.js フロントエンド）
+# ===============================
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env.local
+.env.production
+
+# ===============================
+# Go（バックエンド）
+# ===============================
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.mod
+*.sum
+vendor/
+
+# Goビルドキャッシュ
+/go.sum
+/go.mod
+/build/
+tmp/
+*.log
+
+# ===============================
+# 環境変数ファイル（共通）
+# ===============================
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ===============================
+# Docker
+# ===============================
+*.pid
+*.tar
+docker-compose.override.yml
+
+# ===============================
+# OS・エディタ
+# ===============================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.swn
+*.bak
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+
+# ===============================
+# デプロイサービス
+# ===============================
+.vercel/
+.railway/
+firebase-debug.log
