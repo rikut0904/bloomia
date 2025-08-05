@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>ユーザープロフィール</h1>
+            <nav>
+                <a href="/" class="btn btn-secondary">ホーム</a>
+                <a href="/logout" class="btn btn-danger">ログアウト</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="user-profile">
+                {{if .user}}
+                <div class="profile-card">
+                    <img src="{{.user.Picture}}" alt="Profile Picture" class="profile-picture">
+                    <h2>{{.user.Name}}</h2>
+                    <p><strong>Email:</strong> {{.user.Email}}</p>
+                    <p><strong>User ID:</strong> {{.user.Sub}}</p>
+                    <p><strong>Email Verified:</strong> {{.user.EmailVerified}}</p>
+                    <p><strong>Updated:</strong> {{.user.UpdatedAt}}</p>
+                </div>
+                {{else}}
+                <div class="error-message">
+                    <p>ユーザー情報が見つかりません。</p>
+                    <a href="/login" class="btn btn-primary">ログイン</a>
+                </div>
+                {{end}}
+            </div>
+
+            <div class="api-section">
+                <h3>API テスト</h3>
+                <button onclick="getProfile()" class="btn btn-primary">プロフィール取得</button>
+                <div id="api-result"></div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 Bloomia. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script>
+        async function getProfile() {
+            try {
+                const response = await fetch('/api/profile');
+                const data = await response.json();
+                document.getElementById('api-result').innerHTML =
+                    '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('api-result').innerHTML =
+                    '<p class="error">エラー: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+
+</html>

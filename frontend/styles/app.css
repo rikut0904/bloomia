@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: #fefcf8;
+        --foreground: #1e1e1e;
+        --primary: #ff7f50;
+        --primary-light: #fff1e6;
+        --card: #ffffff;
+        --card-foreground: #1e1e1e;
+        --border: #e5e7eb;
+        --input: #ffffff;
+        --ring: #ff7f50;
+    }
+
+    .dark {
+        --background: #1a1a1a;
+        --foreground: #f5f5f5;
+        --primary: #ffb085;
+        --primary-light: #2c2c2c;
+        --card: #2c2c2c;
+        --card-foreground: #f5f5f5;
+        --border: #404040;
+        --input: #2c2c2c;
+        --ring: #ffb085;
+    }
+
+    * {
+        border-color: var(--border);
+    }
+
+    body {
+        background-color: var(--background);
+        color: var(--foreground);
+        font-feature-settings: "rlig" 1, "calt" 1;
+        margin: 0;
+        padding: 0;
+    }
+}
+
+@layer components {
+    .app-main {
+        font-family: 'Arial', sans-serif;
+        background-color: var(--background);
+        padding: 0.5rem;
+        text-align: center;
+        min-height: 100vh;
+    }
+
+    .app-main h1 {
+        font-size: 2.5rem;
+        color: var(--foreground);
+        margin-bottom: 2rem;
+    }
+
+    .app-link {
+        margin-top: 2rem;
+        display: inline-block;
+        padding: 1rem 2rem;
+        background: var(--primary);
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+
+    .app-link:hover {
+        background: var(--primary);
+        opacity: 0.9;
+        transform: translateY(-2px);
+    }
+
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .admin-layout {
+        min-height: 100vh;
+        background-color: var(--background);
+    }
+
+    /* アニメーション */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    /* スクロールバーのカスタマイズ */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--background);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+        opacity: 0.8;
+    }
+}
