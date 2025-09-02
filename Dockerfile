@@ -1,5 +1,6 @@
-# Dockerfile for Railway deployment - Root context approach
-# This approach ensures Railway can find all necessary files
+# RAILWAY DEPLOYMENT DOCKERFILE v2.0 - Context-Safe Build
+# Force cache invalidation: Build ID $(date +%Y%m%d%H%M%S)
+# This version uses context-safe file copying to bypass Railway path issues
 
 # Build stage
 FROM golang:1.21-alpine AS builder
@@ -22,8 +23,18 @@ RUN adduser \
 # Set working directory
 WORKDIR /build
 
+# RAILWAY CACHE BUSTER - Force fresh build context
+RUN echo "Railway Build Context Validation - Timestamp: $(date)" && \
+    echo "Build ID: RAILWAY_DEPLOY_v2_$(date +%Y%m%d_%H%M%S)"
+
 # Copy entire context to temp location first (Railway-safe approach)
 COPY . /tmp/context/
+
+# Validate context structure
+RUN echo "=== VALIDATING BUILD CONTEXT ===" && \
+    ls -la /tmp/context/ && \
+    echo "Backend directory check:" && \
+    ls -la /tmp/context/backend/ || echo "ERROR: Backend directory missing"
 
 # Copy go.mod and go.sum from backend directory for dependency caching
 RUN cp /tmp/context/backend/go.mod /tmp/context/backend/go.sum ./
