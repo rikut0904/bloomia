@@ -1,4 +1,6 @@
+# Disable this directory from being detected as a separate service
 [build]
-# Disable Nixpacks for this directory
-# Railway should use the root-level railway.json configuration instead
 nixpacks = false
+
+[variables]
+NIXPACKS_NO_INSTALL = "1"

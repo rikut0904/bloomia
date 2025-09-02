@@ -8,5 +8,13 @@
     "builder": "dockerfile",
     "dockerfilePath": "Dockerfile.backend-root",
     "watchPatterns": ["backend/**"]
+  },
+  "environments": {
+    "production": {
+      "build": {
+        "builder": "dockerfile",
+        "dockerfilePath": "Dockerfile.backend-root"
+      }
+    }
   }
 }

@@ -1,0 +1,3 @@
+# Ignore backend directory from Railway auto-detection
+# Railway should only use the root-level railway.json configuration
+backend/
