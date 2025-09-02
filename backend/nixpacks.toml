@@ -1,6 +1,0 @@
-# Disable this directory from being detected as a separate service
-[build]
-nixpacks = false
-
-[variables]
-NIXPACKS_NO_INSTALL = "1"

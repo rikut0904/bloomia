@@ -1,59 +1,64 @@
+# Multi-stage Dockerfile for Railway and Local deployment
+# This unified Dockerfile works for both Railway deployment and local development
+
 # Build stage
 FROM golang:1.21-alpine AS builder
 
-# Install git and ca-certificates
+# Install git and ca-certificates for downloading modules and HTTPS requests
 RUN apk update && apk add --no-cache git ca-certificates && update-ca-certificates
 
-# Create appuser
+# Create a non-root user for security
 ENV USER=appuser
 ENV UID=10001
-
-# Create the user
-RUN adduser \    
-    --disabled-password \    
-    --gecos "" \    
-    --home "/nonexistent" \    
-    --shell "/sbin/nologin" \    
-    --no-create-home \    
-    --uid "${UID}" \    
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
     "${USER}"
 
+# Set working directory
 WORKDIR /build
 
-# Copy go mod files (use renamed files to avoid Railway detection issues)
-COPY backend/_go.mod.tmp backend/_go.sum.tmp ./
-RUN mv _go.mod.tmp go.mod && mv _go.sum.tmp go.sum
+# Copy go.mod and go.sum first for better Docker layer caching
+COPY backend/go.mod backend/go.sum ./
 
 # Download dependencies
-RUN go mod download
-RUN go mod verify
+RUN go mod download && go mod verify
 
-# Copy source code from backend directory
+# Copy source code
 COPY backend/ .
 
-# Build the binary
+# Build the binary with optimizations for production
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
-    -a -installsuffix cgo -o server cmd/server/main.go
+    -a -installsuffix cgo \
+    -o server cmd/server/main.go
 
-# Production stage
+# Production stage - minimal scratch image
 FROM scratch
 
-# Import ca-certificates from builder
+# Copy ca-certificates for HTTPS requests
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-# Import the user and group files from the builder
+# Copy user configuration for security
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 
-# Copy the static executable
+# Copy the compiled binary
 COPY --from=builder /build/server /server
 
-# Use the unprivileged user
+# Use non-root user
 USER appuser:appuser
 
-# Expose port
+# Expose port (Railway will override this with PORT env var)
 EXPOSE 8080
 
-# Run the binary
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/server", "--healthcheck"] || exit 1
+
+# Run the server
 ENTRYPOINT ["/server"]

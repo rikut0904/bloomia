@@ -81,7 +81,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: ./backend/Dockerfile
     container_name: bloomia_backend
     restart: unless-stopped
     ports:

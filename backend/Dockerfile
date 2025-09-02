@@ -20,15 +20,16 @@ RUN adduser \
 
 WORKDIR /build
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go mod files (use renamed files to avoid Railway detection issues)
+COPY backend/_go.mod.tmp backend/_go.sum.tmp ./
+RUN mv _go.mod.tmp go.mod && mv _go.sum.tmp go.sum
 
 # Download dependencies
 RUN go mod download
 RUN go mod verify
 
-# Copy source code
-COPY . .
+# Copy source code from backend directory
+COPY backend/ .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -53,8 +54,6 @@ USER appuser:appuser
 
 # Expose port
 EXPOSE 8080
-
-# Health check will be handled by docker-compose
 
 # Run the binary
 ENTRYPOINT ["/server"]

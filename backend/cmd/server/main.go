@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bloomia/backend/internal/database"
-	"github.com/bloomia/backend/internal/redis"
+	"github.com/rikut0904/bloomia/backend/internal/database"
+	"github.com/rikut0904/bloomia/backend/internal/redis"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
