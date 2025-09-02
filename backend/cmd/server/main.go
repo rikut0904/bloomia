@@ -1,14 +1,18 @@
 package main
 
-// Railway deployment fix - v1.0.1
+// Railway deployment hotfix - v1.0.2
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
+	"github.com/rikut0904/bloomia/backend/internal/database"
+	"github.com/rikut0904/bloomia/backend/internal/redis"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -30,6 +34,35 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
+
+	// Initialize database connection
+	if err := database.InitDatabase(); err != nil {
+		log.Printf("Failed to initialize database: %v", err)
+		// Continue without database for now
+	}
+
+	// Initialize Redis connection
+	if err := redis.InitRedis(); err != nil {
+		log.Printf("Failed to initialize Redis: %v", err)
+		// Continue without Redis for now
+	}
+
+	// Setup graceful shutdown
+	defer func() {
+		database.CloseDatabase()
+		redis.CloseRedis()
+	}()
+
+	// Handle graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		log.Println("Shutting down gracefully...")
+		database.CloseDatabase()
+		redis.CloseRedis()
+		os.Exit(0)
+	}()
 
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
@@ -104,19 +137,41 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	services := map[string]string{
+		"server": "healthy",
+	}
+
+	// Check database health
+	if err := database.HealthCheck(); err != nil {
+		services["database"] = "unhealthy: " + err.Error()
+	} else {
+		services["database"] = "healthy"
+	}
+
+	// Check Redis health
+	if err := redis.HealthCheck(); err != nil {
+		services["redis"] = "unhealthy: " + err.Error()
+	} else {
+		services["redis"] = "healthy"
+	}
+
+	// Determine overall status
+	status := "healthy"
+	for _, serviceStatus := range services {
+		if serviceStatus != "healthy" && serviceStatus != "server" {
+			status = "degraded"
+			break
+		}
+	}
+
 	health := HealthStatus{
-		Status:      "healthy",
+		Status:      status,
 		Environment: getEnvOrDefault("APP_ENV", "development"),
-		Version:     "1.0.0",
+		Version:     "1.0.2",
 		Theme:       getEnvOrDefault("DEFAULT_THEME_COLOR", "#FF7F50"),
 		Background:  getEnvOrDefault("DEFAULT_BACKGROUND_COLOR", "#fdf8f0"),
-		Services: map[string]string{
-			"server": "healthy",
-			// 将来的にデータベースやRedisのチェックを追加
-			// "database": checkDatabase(),
-			// "redis":    checkRedis(),
-		},
-		Timestamp: time.Now(),
+		Services:    services,
+		Timestamp:   time.Now(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
