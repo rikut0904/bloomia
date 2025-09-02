@@ -17,6 +17,3 @@ node_modules/
 # Documentation
 README.md
 *.md
-
-# Don't ignore backend directory - it's needed!
-!backend/
