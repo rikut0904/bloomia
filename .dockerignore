@@ -1,0 +1,19 @@
+# Frontend files (not needed for backend build)
+frontend/
+node_modules/
+*.log
+
+# Development files
+.env.local
+.env.development
+*.tmp
+
+# Git and IDE files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Documentation
+README.md
+*.md
