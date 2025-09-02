@@ -1,0 +1,47 @@
+# Simple Railway-optimized Dockerfile
+FROM golang:1.21-alpine AS builder
+
+# Install dependencies
+RUN apk update && apk add --no-cache git ca-certificates && update-ca-certificates
+
+# Create appuser for security
+RUN adduser --disabled-password --gecos "" --home "/nonexistent" --shell "/sbin/nologin" --no-create-home --uid "10001" appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy go module files first for better caching
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+RUN go mod verify
+
+# Copy all source code
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -a -installsuffix cgo \
+    -o server ./cmd/server/main.go
+
+# Production stage - minimal image
+FROM scratch
+
+# Import certificates and user info from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
+
+# Copy the binary
+COPY --from=builder /app/server /server
+
+# Use non-root user
+USER appuser:appuser
+
+# Expose port
+EXPOSE 8080
+
+# Run the application
+ENTRYPOINT ["/server"]
