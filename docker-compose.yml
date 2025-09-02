@@ -80,8 +80,8 @@ services:
   # Backend (Go)
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.backend
     container_name: bloomia_backend
     restart: unless-stopped
     ports:
