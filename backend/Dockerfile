@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Bloomia Backend
-# This Dockerfile works for both Railway deployment and local development
+# This Dockerfile works for docker-compose with backend directory context
 
 # Build stage
 FROM golang:1.21-alpine AS builder
@@ -23,14 +23,14 @@ RUN adduser \
 
 WORKDIR /build
 
-# Copy go mod files from backend directory
-COPY backend/go.mod backend/go.sum ./
+# Copy go mod files (backend directory is the context)
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download && go mod verify
 
-# Copy source code from backend directory
-COPY backend/ .
+# Copy source code (all files from backend directory)
+COPY . .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
