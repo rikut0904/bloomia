@@ -1,7 +1,10 @@
+# Multi-stage Dockerfile for Bloomia Backend
+# This Dockerfile works for both Railway deployment and local development
+
 # Build stage
 FROM golang:1.21-alpine AS builder
 
-# Install git and ca-certificates
+# Install git and ca-certificates for downloading modules and HTTPS requests
 RUN apk update && apk add --no-cache git ca-certificates && update-ca-certificates
 
 # Create appuser
@@ -20,16 +23,14 @@ RUN adduser \
 
 WORKDIR /build
 
-# Copy go mod files (use renamed files to avoid Railway detection issues)
-COPY backend/_go.mod.tmp backend/_go.sum.tmp ./
-RUN mv _go.mod.tmp go.mod && mv _go.sum.tmp go.sum
+# Copy go mod files
+COPY go.mod go.sum ./
 
 # Download dependencies
-RUN go mod download
-RUN go mod verify
+RUN go mod download && go mod verify
 
-# Copy source code from backend directory
-COPY backend/ .
+# Copy source code
+COPY . .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
@@ -52,8 +53,12 @@ COPY --from=builder /build/server /server
 # Use the unprivileged user
 USER appuser:appuser
 
-# Expose port
+# Expose port (Railway will override this with PORT env var)
 EXPOSE 8080
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/server", "--healthcheck"] || exit 1
 
 # Run the binary
 ENTRYPOINT ["/server"]
