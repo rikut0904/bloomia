@@ -1,0 +1,11 @@
+# This file prevents Railway from detecting this directory as a separate service
+# Railway should use the root-level railway.json configuration instead
+
+[build]
+# Explicitly disable this directory
+builder = "dockerfile"
+dockerfilePath = "../Dockerfile.backend-root"
+
+[deploy]
+# This service should not be deployed independently
+healthcheckPath = "/health"
