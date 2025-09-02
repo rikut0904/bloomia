@@ -1,6 +1,6 @@
 package main
 
-// Railway deployment fix - v1.0.1
+// Railway deployment hotfix - v1.0.2
 
 import (
 	"encoding/json"
