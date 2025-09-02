@@ -1,19 +1,42 @@
-import '@/styles/app.css';
+import type React from "react"
+import type { Metadata } from "next"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import { Analytics } from "@vercel/analytics/next"
+import { UserProvider } from '@auth0/nextjs-auth0/client'
+import { MockUserProvider } from '@/lib/mock-auth'
+import { Suspense } from "react"
+import "./globals.css"
 
-export const metadata = {
-  title: "Bloomia - 学びが花開く場所",
-  description: "未来の教育を Bloomia で。統合型LMSで学びをもっと楽しく、継続しやすく。",
-  keywords: "教育, LMS, 学習管理システム, オンライン学習",
-  authors: [{ name: "Bloomia Inc." }],
-  viewport: "width=device-width, initial-scale=1",
-};
+export const metadata: Metadata = {
+  title: "Bloomia - 中学校向け統合学習・公務支援システム",
+  description: "中学生の学びたい気持ちを育み、教師の教育活動と公務業務を統合的に支援するプラットフォーム",
+  generator: "Bloomia",
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  // Check if Auth0 is enabled
+  const isAuth0Enabled = process.env.AUTH0_ISSUER_BASE_URL && process.env.AUTH0_ISSUER_BASE_URL.length > 0;
+
   return (
     <html lang="ja">
-      <body className="bg-background text-foreground m-0 p-0">
-        {children}
+      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable} antialiased`} style={{backgroundColor: '#fdf8f0', minHeight: '100vh'}}>
+        {isAuth0Enabled ? (
+          <UserProvider>
+            <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+            <Analytics />
+          </UserProvider>
+        ) : (
+          <MockUserProvider>
+            <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+            <Analytics />
+          </MockUserProvider>
+        )}
       </body>
     </html>
-  );
+  )
 }

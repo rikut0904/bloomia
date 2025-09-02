@@ -7,8 +7,6 @@ out/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.env.local
-.env.production
 
 # ===============================
 # Go（バックエンド）
@@ -35,9 +33,6 @@ tmp/
 # 環境変数ファイル（共通）
 # ===============================
 .env
-.env.*
-!.env.example
-!.env.*.example
 
 # ===============================
 # Docker
@@ -63,10 +58,3 @@ Thumbs.db
 # VSCode
 .vscode/*
 !.vscode/settings.json
-
-# ===============================
-# デプロイサービス
-# ===============================
-.vercel/
-.railway/
-firebase-debug.log

@@ -1,63 +1,68 @@
 'use client';
 
+import { useUser } from '@auth0/nextjs-auth0/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService, User } from '@/lib/auth-service';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import '@/styles/app.css';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export default function HomePage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user: auth0User, error: auth0Error, isLoading: auth0Loading } = useUser();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Check if Auth0 is enabled
+  const isAuth0Enabled = process.env.NEXT_PUBLIC_AUTH0_ISSUER_BASE_URL && 
+                        process.env.NEXT_PUBLIC_AUTH0_ISSUER_BASE_URL.length > 0;
+
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { isAuthenticated, user } = await authService.checkAuthStatus();
-        if (!isAuthenticated) {
-          router.push('/home/login');
-          return;
+    if (isAuth0Enabled) {
+      // Use Auth0 user
+      setUser(auth0User);
+      setIsLoading(auth0Loading);
+    } else {
+      // Check for mock user in cookies
+      const mockUserCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('mock-user='));
+      
+      if (mockUserCookie) {
+        try {
+          const userData = JSON.parse(decodeURIComponent(mockUserCookie.split('=')[1]));
+          setUser(userData);
+        } catch (error) {
+          console.error('Error parsing mock user cookie:', error);
         }
-        setUser(user);
-      } catch (err) {
-        setError('認証エラーが発生しました');
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    checkAuth();
-
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark') {
-      document.documentElement.classList.add('dark');
-      setDarkMode(true);
+      setIsLoading(false);
     }
-  }, [router]);
+  }, [isAuth0Enabled, auth0User, auth0Loading]);
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    const nowDark = saved === 'dark';
+    if (nowDark) document.documentElement.classList.add('dark');
+    setDarkMode(nowDark);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
 
   const toggleTheme = () => {
-    const nowDark = !darkMode;
-    document.documentElement.classList.toggle('dark', nowDark);
-    localStorage.setItem('theme', nowDark ? 'dark' : 'light');
-    setDarkMode(nowDark);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await authService.logout();
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
-    }
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // 検索機能の実装
-    console.log('検索クエリ:', searchQuery);
+    const next = !darkMode;
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+    setDarkMode(next);
   };
 
   const row1Items = [
@@ -76,27 +81,24 @@ export default function HomePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: '#fdf8f0'}}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{borderColor: '#FF7F50'}}></div>
           <p className="text-lg">読み込み中...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (auth0Error && isAuth0Enabled) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-600 text-lg mb-4">エラーが発生しました</p>
-          <p className="text-sm text-gray-600">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
-          >
-            再読み込み
-          </button>
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: '#fdf8f0'}}>
+        <div className="max-w-md bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-red-600 text-xl font-semibold mb-4">エラーが発生しました</h2>
+          <p className="mb-4">{auth0Error.message}</p>
+          <Button onClick={() => router.push('/login')}>
+            ログインページに戻る
+          </Button>
         </div>
       </div>
     );
@@ -107,58 +109,144 @@ export default function HomePage() {
   }
 
   return (
-    <main className="bg-background text-foreground min-h-screen">
-      {/* ヘッダー */}
-      <header className="flex justify-between items-center p-4 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <h1 className="text-2xl font-bold text-primary">Bloomia</h1>
-        <div className="flex items-center gap-4">
+    <main
+      className="min-h-screen"
+      style={{ background: 'var(--background)', color: 'var(--text-primary)' }}
+    >
+      {/* README準拠のテーマ変数 */}
+      <style>{`
+        :root {
+          /* メインカラー（コーラル） */
+          --primary: #FF7F50;
+          --primary-light: #FFB07A;
+          --primary-dark: #E55A2B;
+
+          /* セカンダリ・アクセント */
+          --secondary: #20B2AA;
+          --secondary-light: #48D1CC;
+          --secondary-dark: #008B8B;
+          --accent: #FFD700;
+          --accent-light: #FFEC8C;
+          --accent-dark: #DAA520;
+
+          /* 状態色 */
+          --success: #32CD32;
+          --warning: #FFA500;
+          --error: #DC143C;
+          --info: #4682B4;
+
+          /* 背景・テキスト・枠線・影 */
+          --background: #fdf8f0;
+          --surface: #FFFFFF;
+          --text-primary: #2F1B14;
+          --text-secondary: #8B4513;
+          --border: #DEB887;
+          --shadow: rgba(255,127,80,0.2);
+        }
+        /* ダークは可読性を優先した暫定値（READMEベース） */
+        .dark {
+          --background: #0F172A;
+          --surface: #1E293B;
+          --text-primary: #E5E7EB;
+          --text-secondary: #C7D2FE;
+          --border: #334155;
+          --shadow: rgba(0,0,0,0.25);
+          --primary: #FF7F50;
+          --primary-light: #FFB07A;
+          --primary-dark: #E55A2B;
+        }
+      `}</style>
+
+      {/* Header */}
+      <header
+        className="flex justify-between items-center p-4 border-b"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>
+          Bloomia
+        </h1>
+        <div className="flex items-center gap-3">
+          <div className="text-right mr-4">
+            <p className="font-medium" style={{color: 'var(--text-primary)'}}>
+              {user.name || user.email}
+            </p>
+            <p className="text-sm" style={{color: 'var(--text-secondary)'}}>ようこそ</p>
+          </div>
           <button
             onClick={toggleTheme}
             className="text-xl p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label={darkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
+            title={darkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
           >
             {darkMode ? '☀️' : '🌙'}
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {user.name || user.email}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
-            >
-              ログアウト
-            </button>
-          </div>
+          <Button
+            onClick={() => {
+              if (isAuth0Enabled) {
+                window.location.href = '/api/auth/logout';
+              } else {
+                // Mock logout
+                document.cookie = 'mock-user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                window.location.href = '/login';
+              }
+            }}
+            className="text-white hover:opacity-90"
+            style={{backgroundColor: 'var(--primary)'}}
+          >
+            ログアウト
+          </Button>
         </div>
       </header>
 
-      {/* メインレイアウト */}
+      {/* Body */}
       <div className="flex flex-col lg:flex-row p-4 gap-6">
-        {/* 左：本日のタスク */}
-        <aside className="w-full lg:w-1/4 bg-primary-light dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        {/* Left: tasks */}
+        <aside
+          className="w-full lg:w-1/4 rounded-lg shadow-sm p-6"
+          style={{
+            background: 'var(--surface)',
+            boxShadow: '0 4px 16px var(--shadow)',
+            border: '1px solid var(--border)',
+          }}
+        >
           <h2 className="text-lg font-semibold mb-4">本日のタスク</h2>
-          <ul className="bg-white dark:bg-gray-700 rounded-lg p-4 space-y-3">
+          <ul
+            className="rounded-lg p-4 space-y-3"
+            style={{ background: 'var(--surface)' }}
+          >
             <li className="flex items-center gap-2 text-sm">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full" />
               国語の予習
             </li>
             <li className="flex items-center gap-2 text-sm">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-green-500 rounded-full" />
               数学の課題提出
             </li>
             <li className="flex items-center gap-2 text-sm">
-              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-purple-500 rounded-full" />
               プログラミング演習
             </li>
           </ul>
         </aside>
 
-        {/* 右：検索＋メニュー */}
+        {/* Right: search + top modules */}
         <section className="w-full lg:w-3/4 flex flex-col gap-6">
-          {/* 検索バー */}
-          <form onSubmit={handleSearch} className="relative">
-            <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex items-center gap-3">
+          {/* Search */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              console.log('検索:', searchQuery);
+            }}
+            className="relative"
+          >
+            <div
+              className="p-4 rounded-lg flex items-center gap-3"
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                boxShadow: '0 4px 12px var(--shadow)',
+              }}
+            >
               <span className="text-xl">🔍</span>
               <input
                 type="text"
@@ -170,18 +258,33 @@ export default function HomePage() {
               />
               <button
                 type="submit"
-                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 transition-colors"
+                className="px-4 py-2 rounded transition-colors text-white shadow"
+                style={{
+                  background:
+                    'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                  boxShadow: '0 8px 20px var(--shadow)',
+                  border: 'none',
+                }}
               >
                 検索
               </button>
             </div>
           </form>
 
-          {/* 上段メニュー：教科書・ノート・課題 */}
+          {/* Top row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {row1Items.map((item) => (
-              <Link key={item.title} href={item.href}>
-                <div className="bg-primary-light dark:bg-gray-800 p-6 text-center rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105">
+              <Link key={item.title} href={item.href} className="block">
+                <div
+                  className="p-6 text-center rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                    color: '#fff',
+                    boxShadow: '0 4px 12px var(--shadow)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
                   <div className="text-3xl mb-2">{item.icon}</div>
                   <div className="font-semibold">{item.title}</div>
                 </div>
@@ -191,12 +294,21 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* 下段メニュー */}
+      {/* Bottom row */}
       <section className="p-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {row2Items.map((item) => (
-            <Link key={item.title} href={item.href}>
-              <div className="bg-primary-light dark:bg-gray-800 p-4 text-center rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105">
+            <Link key={item.title} href={item.href} className="block">
+              <div
+                className="p-4 text-center rounded-lg shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105"
+                style={{
+                  background:
+                    'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                  color: '#fff',
+                  boxShadow: '0 4px 12px var(--shadow)',
+                  border: '1px solid var(--border)',
+                }}
+              >
                 <div className="text-2xl mb-2">{item.icon}</div>
                 <div className="font-medium text-sm">{item.title}</div>
               </div>
@@ -207,4 +319,3 @@ export default function HomePage() {
     </main>
   );
 }
-
