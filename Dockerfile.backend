@@ -27,7 +27,7 @@ COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 RUN go mod verify
 
-# Copy source code
+# Copy source code from backend directory
 COPY backend/ .
 
 # Build the binary

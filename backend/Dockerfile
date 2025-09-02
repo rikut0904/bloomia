@@ -21,14 +21,14 @@ RUN adduser \
 WORKDIR /build
 
 # Copy go mod files
-COPY backend/go.mod backend/go.sum ./
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
 RUN go mod verify
 
 # Copy source code
-COPY backend/ .
+COPY . .
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
