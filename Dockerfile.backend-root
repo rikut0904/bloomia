@@ -20,8 +20,9 @@ RUN adduser \
 
 WORKDIR /build
 
-# Copy go mod files from backend directory
-COPY backend/go.mod backend/go.sum ./
+# Copy go mod files from backend directory (temporarily renamed to avoid Railway detection)
+COPY backend/_go.mod.tmp backend/_go.sum.tmp ./
+RUN mv _go.mod.tmp go.mod && mv _go.sum.tmp go.sum
 
 # Download dependencies
 RUN go mod download
