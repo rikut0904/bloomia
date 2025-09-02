@@ -15,7 +15,7 @@ export const GET = async (request: NextRequest, { params }: { params: { auth0: s
     
     if (pathname.includes('/login')) {
       // Mock login - redirect to home with mock user
-      const response = NextResponse.redirect(new URL('http://localhost:3000/home', request.url));
+      const response = NextResponse.redirect(new URL(`${process.env.AUTH0_BASE_URL}/home`, request.url));
       response.cookies.set('mock-user', JSON.stringify({
         sub: 'mock-user-123',
         name: 'テストユーザー',
@@ -30,7 +30,7 @@ export const GET = async (request: NextRequest, { params }: { params: { auth0: s
       return response;
     } else if (pathname.includes('/callback')) {
       // Mock callback - redirect to home
-      return NextResponse.redirect(new URL('http://localhost:3000/home', request.url));
+      return NextResponse.redirect(new URL(`${process.env.AUTH0_BASE_URL}/home`, request.url));
     } else if (pathname.includes('/me')) {
       // Mock profile endpoint
       const mockUser = {
