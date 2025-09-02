@@ -2,8 +2,5 @@
   "build": {
     "builder": "dockerfile",
     "dockerfilePath": "Dockerfile.backend-root"
-  },
-  "deploy": {
-    "startCommand": ""
   }
 }
