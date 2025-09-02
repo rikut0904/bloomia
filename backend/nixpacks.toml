@@ -1,0 +1,4 @@
+[build]
+# Disable Nixpacks for this directory
+# Railway should use the root-level railway.json configuration instead
+nixpacks = false
