@@ -6,14 +6,14 @@
   },
   "build": {
     "builder": "dockerfile",
-    "dockerfilePath": "Dockerfile.backend-root",
+    "dockerfilePath": "backend/Dockerfile.backend-root",
     "watchPatterns": ["backend/**"]
   },
   "environments": {
     "production": {
       "build": {
         "builder": "dockerfile",
-        "dockerfilePath": "Dockerfile.backend-root"
+        "dockerfilePath": "backend/Dockerfile.backend-root"
       }
     }
   }
