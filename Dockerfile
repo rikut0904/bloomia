@@ -22,14 +22,17 @@ RUN adduser \
 # Set working directory
 WORKDIR /build
 
-# Copy go.mod and go.sum from backend directory for better Docker layer caching
-COPY backend/go.mod backend/go.sum ./
+# Copy entire context to temp location first (Railway-safe approach)
+COPY . /tmp/context/
+
+# Copy go.mod and go.sum from backend directory for dependency caching
+RUN cp /tmp/context/backend/go.mod /tmp/context/backend/go.sum ./
 
 # Download dependencies
 RUN go mod download && go mod verify
 
 # Copy backend source code
-COPY backend/ .
+RUN cp -r /tmp/context/backend/* .
 
 # Build the binary with optimizations for production
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
