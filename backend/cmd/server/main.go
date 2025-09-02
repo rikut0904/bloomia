@@ -1,5 +1,7 @@
 package main
 
+// Railway deployment fix - v1.0.1
+
 import (
 	"encoding/json"
 	"log"
