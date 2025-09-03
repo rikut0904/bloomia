@@ -49,10 +49,17 @@ export const GET = async (request: NextRequest, { params }: { params: { auth0: s
   // Use Auth0 if enabled
   return handleAuth({
     login: handleLogin({
-      returnTo: '/home'
+      returnTo: '/home',
+      authorizationParams: {
+        prompt: 'login',           // 強制的にログイン画面を表示
+        max_age: '0'               // キャッシュされた認証を無効化
+      }
     }),
     logout: handleLogout({
-      returnTo: '/login'
+      returnTo: '/login',
+      logoutParams: {
+        federated: true    // Auth0のセッションも完全にクリア
+      }
     })
   })(request, { params });
 };

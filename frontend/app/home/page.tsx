@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { useUser } from '@auth0/nextjs-auth0/client';
 import '@/styles/app.css';
 
 // Force dynamic rendering
@@ -12,10 +13,11 @@ export const dynamic = 'force-dynamic';
 export default function HomePage() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Auth0のuseUserフックを使用
+  const { user: auth0User, error, isLoading: auth0IsLoading } = useUser();
 
   // Check if Auth0 is enabled
   const isAuth0Enabled = typeof window !== 'undefined' && 
@@ -26,17 +28,17 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
+  // Auth0またはモックユーザーを取得
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     if (!mounted) return;
 
     if (isAuth0Enabled) {
-      // We'll handle Auth0 after mount on client side only
-      import('@auth0/nextjs-auth0/client').then(({ useUser }) => {
-        // This would require a different approach since we can't use hooks conditionally
-        // For now, let's use a simpler mock approach
-        setUser({ name: 'Test User', email: 'test@example.com' });
-        setIsLoading(false);
-      });
+      // Auth0のユーザー情報を使用
+      setUser(auth0User);
+      setIsLoading(auth0IsLoading);
     } else {
       // Check for mock user in cookies
       const mockUserCookie = document.cookie
@@ -53,7 +55,7 @@ export default function HomePage() {
       }
       setIsLoading(false);
     }
-  }, [mounted, isAuth0Enabled]);
+  }, [mounted, isAuth0Enabled, auth0User, auth0IsLoading]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -184,6 +186,12 @@ export default function HomePage() {
           <Button
             onClick={() => {
               if (isAuth0Enabled) {
+                // シンプルで確実なAuth0ログアウト処理
+                // 1. ローカルストレージとセッションストレージをクリア
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // 2. Auth0のログアウトエンドポイントを使用（シンプルで確実）
                 window.location.href = '/api/auth/logout';
               } else {
                 // Mock logout
