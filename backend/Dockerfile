@@ -36,7 +36,7 @@ RUN go mod download && go mod verify
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
-    -a -installsuffix cgo -o server cmd/server/main.go
+    -a -installsuffix cgo -o server ./cmd/server
 
 # Production stage
 FROM scratch
@@ -57,9 +57,9 @@ USER appuser:appuser
 # Expose port (Railway will override this with PORT env var)
 EXPOSE 8080
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/server", "--healthcheck"] || exit 1
+# Health check endpoint (disabled for scratch image)
+# HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+#     CMD ["/server", "--healthcheck"] || exit 1
 
 # Run the binary
 ENTRYPOINT ["/server"]

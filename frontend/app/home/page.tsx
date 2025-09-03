@@ -28,19 +28,74 @@ export default function HomePage() {
     setMounted(true);
   }, []);
 
-  // Auth0またはモックユーザーを取得
+  // ユーザーとダッシュボードデータの状態管理
   const [user, setUser] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // APIからダッシュボードデータを取得
+  const fetchDashboardData = async () => {
+    try {
+      const response = await fetch('/api/dashboard?role=student');
+      if (response.ok) {
+        const data = await response.json();
+        setDashboardData(data);
+        setUser(data.user);
+      } else {
+        console.error('Failed to fetch dashboard data');
+      }
+    } catch (error) {
+      console.error('Dashboard fetch error:', error);
+    }
+  };
+
+  // ユーザー同期を実行
+  const syncUser = async () => {
+    try {
+      const response = await fetch('/api/auth/sync', { method: 'POST' });
+      if (response.ok) {
+        const syncData = await response.json();
+        console.log('User synced:', syncData);
+      }
+    } catch (error) {
+      console.error('User sync error:', error);
+    }
+  };
 
   useEffect(() => {
     if (!mounted) return;
 
+    console.log('Home page state:', {
+      isAuth0Enabled,
+      auth0IsLoading,
+      auth0User: !!auth0User,
+      user: !!user,
+      isLoading
+    });
+
     if (isAuth0Enabled) {
-      // Auth0のユーザー情報を使用
-      setUser(auth0User);
-      setIsLoading(auth0IsLoading);
+      if (auth0User && !auth0IsLoading) {
+        console.log('Auth0 user authenticated, syncing data...');
+        // Auth0ユーザーが認証済みの場合
+        const syncAndFetchData = async () => {
+          try {
+            await syncUser(); // PostgreSQLに同期
+            await fetchDashboardData(); // ダッシュボードデータを取得
+            console.log('User sync and data fetch completed');
+          } catch (error) {
+            console.error('Error during user sync or data fetch:', error);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        syncAndFetchData();
+      } else if (!auth0IsLoading && !auth0User) {
+        // 未認証の場合
+        console.log('No Auth0 user found, setting loading to false');
+        setIsLoading(false);
+      }
     } else {
-      // Check for mock user in cookies
+      // モックユーザーの場合
       const mockUserCookie = document.cookie
         .split('; ')
         .find(row => row.startsWith('mock-user='));
@@ -49,6 +104,9 @@ export default function HomePage() {
         try {
           const userData = JSON.parse(decodeURIComponent(mockUserCookie.split('=')[1]));
           setUser(userData);
+          // モック用のダッシュボードデータも設定
+          fetchDashboardData();
+          console.log('Mock user data loaded');
         } catch (error) {
           console.error('Error parsing mock user cookie:', error);
         }
@@ -69,10 +127,18 @@ export default function HomePage() {
   useEffect(() => {
     if (!mounted) return;
     
-    if (!isLoading && !user) {
-      router.push('/login');
+    if (isAuth0Enabled) {
+      // Auth0が有効な場合は、auth0IsLoadingが完了してからリダイレクト判定
+      if (!auth0IsLoading && !auth0User) {
+        router.push('/login');
+      }
+    } else {
+      // モックの場合は従来通り
+      if (!isLoading && !user) {
+        router.push('/login');
+      }
     }
-  }, [user, isLoading, router, mounted]);
+  }, [user, isLoading, router, mounted, isAuth0Enabled, auth0User, auth0IsLoading]);
 
   const toggleTheme = () => {
     const next = !darkMode;
@@ -96,7 +162,7 @@ export default function HomePage() {
   ];
 
   // Show loading until mounted and user is determined
-  if (!mounted || isLoading) {
+  if (!mounted || (isAuth0Enabled && auth0IsLoading) || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: '#fdf8f0'}}>
         <div className="text-center">
@@ -171,10 +237,21 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <div className="text-right mr-4">
             <p className="font-medium" style={{color: 'var(--text-primary)'}}>
-              {user.name || user.email}
+              {user?.name || user?.email || 'ゲスト'}
             </p>
-            <p className="text-sm" style={{color: 'var(--text-secondary)'}}>ようこそ</p>
+            <p className="text-sm" style={{color: 'var(--text-secondary)'}}>
+              {dashboardData?.user?.role === 'student' ? `${dashboardData.user.grade}年生` : 
+               dashboardData?.user?.role === 'teacher' ? '先生' :
+               'ようこそ'}
+            </p>
           </div>
+          {user?.avatar_url && (
+            <img 
+              src={user.avatar_url} 
+              alt="プロフィール" 
+              className="w-8 h-8 rounded-full"
+            />
+          )}
           <button
             onClick={toggleTheme}
             className="text-xl p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -223,18 +300,30 @@ export default function HomePage() {
             className="rounded-lg p-4 space-y-3"
             style={{ background: 'var(--surface)' }}
           >
-            <li className="flex items-center gap-2 text-sm">
-              <span className="w-2 h-2 bg-blue-500 rounded-full" />
-              国語の予習
-            </li>
-            <li className="flex items-center gap-2 text-sm">
-              <span className="w-2 h-2 bg-green-500 rounded-full" />
-              数学の課題提出
-            </li>
-            <li className="flex items-center gap-2 text-sm">
-              <span className="w-2 h-2 bg-purple-500 rounded-full" />
-              プログラミング演習
-            </li>
+            {dashboardData?.tasks?.map((task: any, index: number) => (
+              <li key={task.id} className="flex items-center gap-2 text-sm">
+                <span 
+                  className={`w-2 h-2 rounded-full ${
+                    task.priority === 'high' ? 'bg-red-500' :
+                    task.priority === 'medium' ? 'bg-blue-500' : 'bg-green-500'
+                  }`}
+                />
+                {task.title}
+                {task.due_date && (
+                  <span className="text-xs text-gray-500 ml-auto">
+                    {new Date(task.due_date).toLocaleDateString()}
+                  </span>
+                )}
+              </li>
+            )) || (
+              // フォールバック表示
+              <>
+                <li className="flex items-center gap-2 text-sm">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full" />
+                  タスクを読み込み中...
+                </li>
+              </>
+            )}
           </ul>
         </aside>
 
