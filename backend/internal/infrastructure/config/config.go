@@ -18,6 +18,7 @@ type Config struct {
 	Auth0Domain       string
 	Auth0ClientID     string
 	Auth0ClientSecret string
+	FirebaseProjectID string
 	FrontendURL       string
 	WebSocketURL      string
 	StoragePath       string
@@ -46,6 +47,7 @@ func Load() *Config {
 		Auth0Domain:       getEnv("AUTH0_DOMAIN", ""),
 		Auth0ClientID:     getEnv("AUTH0_CLIENT_ID", ""),
 		Auth0ClientSecret: getEnv("AUTH0_CLIENT_SECRET", ""),
+		FirebaseProjectID: getEnv("FIREBASE_PROJECT_ID", ""),
 		FrontendURL:       getEnv("FRONTEND_URL", "http://localhost:3000"),
 		WebSocketURL:      getEnv("WEBSOCKET_URL", "ws://localhost:8080"),
 		StoragePath:       getEnv("RAILWAY_STORAGE_PATH", "./storage"),

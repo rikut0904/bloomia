@@ -20,7 +20,7 @@ Bloomiaは中学生の「学びたい」という気持ちを育み、教師の�
 **フロントエンド（Vercel）**
 - Next.js 15（App Router）+ React 18
 - TypeScript + Tailwind CSS 4
-- Auth0 Next.js SDK
+- Firebase Auth SDK
 - PWA対応（next-pwa）
 
 **バックエンド（Railway統合管理）**
@@ -30,7 +30,7 @@ Bloomiaは中学生の「学びたい」という気持ちを育み、教師の�
 - Railway Volumes（ファイルストレージ 50GB）
 
 **外部サービス**
-- Auth0（認証・認可）
+- Firebase Auth（認証・認可）
 - Vercel（フロントエンド配信）
 - Railway（バックエンドインフラ）
 
@@ -182,7 +182,7 @@ CREATE TABLE schools (
 -- 基本ユーザー情報
 CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
-    uid TEXT UNIQUE NOT NULL,           -- Auth0 ユーザーID
+    firebase_uid TEXT UNIQUE NOT NULL,  -- Firebase UID
     name TEXT NOT NULL,
     furigana TEXT,
     email TEXT UNIQUE NOT NULL,
@@ -564,11 +564,10 @@ THEME_NAME=coral
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 
-# 認証（Auth0）
-AUTH0_DOMAIN=bloomia-dev.auth0.com
-AUTH0_CLIENT_ID=your-client-id
-AUTH0_CLIENT_SECRET=your-client-secret
-AUTH0_AUDIENCE=https://api.bloomia.com
+# 認証（Firebase）
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
 
 # アプリケーション
 API_BASE_URL=http://localhost:8080|https://api.bloomia.com
@@ -599,7 +598,7 @@ CORAL_THEME_ONLY=true
 
 #### 認証・ユーザー管理
 ```http
-POST   /api/v1/auth/sync              # Auth0同期
+POST   /api/v1/auth/sync              # Firebase同期
 GET    /api/v1/users                  # ユーザー一覧（教員：自校、管理者：全校）
 POST   /api/v1/users/students         # 生徒作成（教員権限）
 PUT    /api/v1/users/{id}             # ユーザー更新
@@ -1019,27 +1018,51 @@ func CreateStudentByTeacher(w http.ResponseWriter, r *http.Request) {
 
 ## 📱 Next.js フロントエンド認証実装
 
-### Auth0統合
+### Firebase Auth統合
 ```tsx
-// app/providers.tsx
-import { UserProvider } from '@auth0/nextjs-auth0/client';
+// contexts/AuthContext.tsx
+import { createContext, useContext, useEffect, useState } from 'react';
+import { onAuthStateChange, signIn, signUp, logout } from '@/lib/auth';
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
   return (
-    <UserProvider>
-      <div style={{backgroundColor: '#fdf8f0', minHeight: '100vh'}}>
-        {children}
-      </div>
-    </UserProvider>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, logout }}>
+      {children}
+    </AuthContext.Provider>
   );
-}
+};
 
 // ログイン実装
 export default function LoginPage() {
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await signIn(email, password);
+      router.push('/home');
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center" 
          style={{background: 'linear-gradient(135deg, #fdf8f0, #f5e6d3)'}}>
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
+      <form onSubmit={handleSubmit} className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
                style={{backgroundColor: '#FF7F50'}}>
@@ -1053,17 +1076,34 @@ export default function LoginPage() {
           </p>
         </div>
         
-        <a
-          href="/api/auth/login"
-          className="w-full py-4 px-6 rounded-xl font-semibold text-white text-center block transition-all duration-300"
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="メールアドレス"
+          className="w-full p-3 mb-4 border rounded-lg"
+          required
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="パスワード"
+          className="w-full p-3 mb-6 border rounded-lg"
+          required
+        />
+        
+        <button
+          type="submit"
+          className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300"
           style={{
             backgroundColor: '#FF7F50',
             boxShadow: '0 8px 20px rgba(255, 127, 80, 0.3)'
           }}
         >
-          学校アカウントでログイン
-        </a>
-      </div>
+          ログイン
+        </button>
+      </form>
     </div>
   );
 }
@@ -1095,17 +1135,81 @@ cd frontend && npm install && npm run dev
 cd backend && go run cmd/server/main.go
 ```
 
-### 必要な環境変数
+### 環境変数設定
+
+#### 1. 環境変数ファイルの作成
 ```bash
-# .env.development
+# ルートディレクトリで環境変数ファイルを作成
+cp .env.example .env
+```
+
+#### 2. 必須設定項目の編集
+
+##### Firebase設定（必須）
+```bash
+# Firebase プロジェクト設定
+FIREBASE_PROJECT_ID=your-project-id
+
+# Firebase サービスアカウントキー（JSON形式）
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"your-project-id",...}
+
+# フロントエンド用 Firebase設定
+NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
+```
+
+##### データベース設定
+```bash
+# PostgreSQL データベースURL（統合形式）
 DATABASE_URL=postgresql://postgres:password@localhost:5432/bloomia_dev
+
+# Redis キャッシュURL（統合形式）
 REDIS_URL=redis://localhost:6379
-AUTH0_DOMAIN=bloomia-dev.auth0.com
-AUTH0_CLIENT_ID=your-dev-client-id
-AUTH0_CLIENT_SECRET=your-dev-client-secret
+
+# 開発用データベース設定（個別設定）
+POSTGRES_DB=bloomia_dev
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+
+# Redis設定（開発用）
+REDIS_PASSWORD=
+```
+
+**注意**: Railway本番環境では以下の形式になります：
+```bash
+# Railway本番環境例
+DATABASE_URL=postgresql://postgres:password@host:port/railway
+REDIS_URL=redis://default:password@host:port
+POSTGRES_DB=railway
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your-railway-postgres-password
+REDIS_PASSWORD=your-railway-redis-password
+```
+
+##### セキュリティ設定（必須）
+```bash
+# 暗号化キー（32文字）
+ENCRYPTION_KEY=your-32-character-encryption-key-here
+
+# JWT シークレット（32文字以上）
+JWT_SECRET=your-jwt-secret-key-for-backend-auth
+
+# セッションシークレット（32文字以上）
+SESSION_SECRET=your-session-secret-key-here
+```
+
+##### API設定
+```bash
+# バックエンドAPI URL
+API_BASE_URL=http://localhost:8080
 NEXT_PUBLIC_API_URL=http://localhost:8080
-DEFAULT_BACKGROUND_COLOR=#fdf8f0
-DEFAULT_THEME_COLOR=#FF7F50
+
+# フロントエンドURL
+FRONTEND_URL=http://localhost:3000
 ```
 
 ---
@@ -1113,7 +1217,7 @@ DEFAULT_THEME_COLOR=#FF7F50
 ## 📋 実装チェックリスト
 
 ### 基盤システム
-- [ ] Auth0認証統合（コーラルテーマ対応）
+- [x] Firebase Auth認証統合（コーラルテーマ対応）
 - [ ] PostgreSQL + Row Level Security
 - [ ] Redis セッション・キャッシュ
 - [ ] Railway Volumes ファイル管理
@@ -1149,3 +1253,265 @@ DEFAULT_THEME_COLOR=#FF7F50
 - [ ] パフォーマンス最適化
 - [ ] バックアップ・復旧
 - [ ] エラー追跡・ログ管理
+
+---
+
+## 👥 管理者機能（新規実装）
+
+### 管理者権限システム
+システム管理者（admin）は以下の機能にアクセスできます：
+
+#### ユーザー管理機能
+- **ユーザー一覧表示**: 全学校のユーザー情報を一覧表示
+- **権限変更**: ユーザーの役割（admin, school_admin, teacher, student）を変更
+- **ステータス管理**: ユーザーのアクティブ状態と承認状態を管理
+- **ユーザー招待**: 新しいユーザーを招待して権限を事前設定
+
+#### 学校管理機能
+- **学校一覧**: 登録されている学校の一覧表示
+- **学校情報管理**: 学校の基本情報と設定の管理
+
+#### 統計・分析機能
+- **ユーザー統計**: 役割別のユーザー数を表示
+- **利用状況分析**: システム全体の利用状況を把握
+
+### 実装されたAPIエンドポイント
+
+#### 管理者用API
+```http
+GET    /api/v1/admin/users              # ユーザー一覧取得
+PUT    /api/v1/admin/users/role         # ユーザー権限変更
+PUT    /api/v1/admin/users/status       # ユーザーステータス変更
+POST   /api/v1/admin/invite             # ユーザー招待
+GET    /api/v1/admin/schools            # 学校一覧取得
+GET    /api/v1/admin/stats              # 統計情報取得
+```
+
+### フロントエンド管理者ページ
+
+#### 管理者ダッシュボード（/admin）
+- システム全体の統計情報を表示
+- 各管理機能へのクイックアクセス
+- ユーザー数、学校数の概要表示
+
+#### ユーザー管理ページ（/admin/users）
+- ユーザー一覧の表示とフィルタリング
+- 検索機能（名前、メールアドレス）
+- 役割別フィルタ
+- 学校別フィルタ
+- ユーザー情報の編集（権限、ステータス）
+
+#### ユーザー招待ページ（/admin/invite）
+- 新しいユーザーの招待機能
+- 権限の事前設定
+- 学校の選択
+- 招待メッセージの設定
+
+### 権限管理の詳細
+
+#### 権限階層
+1. **システム管理者（admin）**
+   - 全学校・全ユーザーの管理
+   - システム全体の設定変更
+   - 新規ユーザーの招待
+
+2. **学校管理者（school_admin）**
+   - 自校のユーザー管理
+   - 自校の設定変更
+   - 自校の新規ユーザー招待
+
+3. **教員（teacher）**
+   - 自校の生徒管理
+   - 授業・教材管理
+   - 成績・出席管理
+
+4. **生徒（student）**
+   - 自分の情報のみアクセス
+   - 学習コンテンツの利用
+
+#### セキュリティ機能
+- **学校別データ分離**: 各学校のデータは完全に分離
+- **権限ベースアクセス制御**: 役割に応じた機能制限
+- **監査ログ**: 管理者操作の記録
+- **承認フロー**: 新規ユーザーの承認プロセス
+
+### データベース設計
+
+#### 管理者関連テーブル
+```sql
+-- ユーザー管理用ビュー
+CREATE VIEW user_management AS
+SELECT 
+    u.id,
+    u.uid,
+    u.name,
+    u.email,
+    u.role,
+    u.school_id,
+    s.name as school_name,
+    u.is_active,
+    u.is_approved,
+    u.last_login_at,
+    u.created_at,
+    u.updated_at
+FROM users u
+LEFT JOIN schools s ON u.school_id = s.id;
+
+-- ユーザー招待テーブル
+CREATE TABLE user_invitations (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL,
+    school_id BIGINT NOT NULL REFERENCES schools(id),
+    message TEXT,
+    status TEXT DEFAULT 'pending',
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 使用方法
+
+#### 管理者としてログイン
+1. システム管理者権限でログイン
+2. `/admin` にアクセス
+3. ダッシュボードでシステム全体の状況を確認
+
+#### ユーザー管理
+1. `/admin/users` でユーザー一覧を表示
+2. フィルタや検索で対象ユーザーを絞り込み
+3. ユーザーの編集ボタンをクリック
+4. 権限やステータスを変更して保存
+
+#### 新規ユーザー招待
+1. `/admin/invite` で招待ページにアクセス
+2. ユーザー情報（名前、メール）を入力
+3. 権限と学校を選択
+4. 招待メッセージを設定
+5. 招待を送信
+
+### 今後の拡張予定
+- バッチ処理による一括ユーザー管理
+- 詳細な利用統計とレポート機能
+- 学校別の詳細設定管理
+- 自動化されたユーザー承認フロー
+
+---
+
+## 🔥 Firebase Auth統合（新規実装）
+
+### Firebase Authの特徴
+- **招待制認証**: 管理者による事前承認が必要
+- **UID管理**: Firebase UIDをデータベースに保存
+- **カスタムクレーム**: ユーザーの役割と学校情報を管理
+- **セキュア**: Googleの認証インフラを活用
+
+### 認証フロー
+```
+1. 管理者がユーザー招待 → Firebaseでユーザー作成
+2. 招待メール送信 → ユーザーが初回ログイン
+3. カスタムクレーム設定 → 役割と学校情報を付与
+4. データベース同期 → Firebase UIDを保存
+5. 通常ログイン → Firebase IDトークンで認証
+```
+
+### 実装された機能
+
+#### フロントエンド
+- **Firebase Auth SDK**: 認証状態管理
+- **AuthContext**: グローバル認証状態
+- **ログインページ**: メール/パスワード認証
+- **管理者レイアウト**: Firebase認証対応
+
+#### バックエンド
+- **Firebase Admin SDK**: サーバーサイド認証
+- **認証ミドルウェア**: IDトークン検証
+- **カスタムクレーム**: 役割と学校情報管理
+- **UID同期**: データベースとの連携
+
+### データベース設計
+```sql
+-- Firebase UIDを主キーとして使用
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    firebase_uid TEXT UNIQUE NOT NULL,  -- Firebase UID
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL DEFAULT 'student',
+    school_id BIGINT NOT NULL REFERENCES schools(id),
+    -- その他のフィールド...
+);
+```
+
+### 環境変数設定
+```bash
+# フロントエンド
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+
+# バックエンド
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+```
+
+### セキュリティ機能
+- **IDトークン検証**: 全APIリクエストで検証
+- **カスタムクレーム**: 役割ベースアクセス制御
+- **学校別分離**: データアクセスの制限
+- **招待制**: 未承認ユーザーの登録防止
+
+### 使用方法
+
+#### 1. Firebase プロジェクト設定
+1. Firebase Consoleでプロジェクト作成
+2. Authentication を有効化
+3. メール/パスワード認証を有効化
+4. サービスアカウントキーを生成
+
+#### 2. 環境変数設定
+```bash
+# ルートディレクトリで環境変数ファイルを作成
+cp .env.example .env
+
+# 以下の設定を編集：
+# - FIREBASE_PROJECT_ID: FirebaseプロジェクトID
+# - FIREBASE_SERVICE_ACCOUNT_KEY: サービスアカウントキー（JSON）
+# - NEXT_PUBLIC_FIREBASE_*: フロントエンド用Firebase設定
+# - DATABASE_URL: PostgreSQL接続情報
+# - REDIS_URL: Redis接続情報
+# - セキュリティキー: ENCRYPTION_KEY, JWT_SECRET, SESSION_SECRET
+```
+
+#### 3. ユーザー招待
+1. 管理者が `/admin/invite` でユーザー招待
+2. Firebaseでユーザー作成
+3. カスタムクレームで役割設定
+4. 招待メール送信
+
+#### 4. ログイン
+1. ユーザーが招待メールのリンクからアクセス
+2. 初回パスワード設定
+3. Firebase Authでログイン
+4. アプリケーションにアクセス
+
+### トラブルシューティング
+
+#### よくある問題
+1. **Firebase設定エラー**: 環境変数の確認
+2. **認証失敗**: カスタムクレームの設定確認
+3. **UID同期エラー**: データベース接続確認
+
+#### デバッグ方法
+```javascript
+// フロントエンド
+console.log('Current user:', user);
+console.log('ID Token:', await getIdToken());
+
+// バックエンド
+log.Printf("Firebase UID: %s", firebaseUser.UID)
+log.Printf("Role: %s", firebaseUser.Role)
+```

@@ -2,156 +2,182 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/rikut0904/bloomia/backend/internal/domain/entities"
 	"github.com/rikut0904/bloomia/backend/internal/domain/repositories"
-	"github.com/rikut0904/bloomia/backend/internal/infrastructure/config"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthUsecase struct {
-	userRepo  repositories.UserRepository
-	redisRepo repositories.RedisRepository
-	config    *config.Config
+	userRepo repositories.UserRepository
+	adminRepo repositories.AdminRepository
 }
 
-func NewAuthUsecase(userRepo repositories.UserRepository, redisRepo repositories.RedisRepository, cfg *config.Config) *AuthUsecase {
+func NewAuthUsecase(userRepo repositories.UserRepository, adminRepo repositories.AdminRepository) *AuthUsecase {
 	return &AuthUsecase{
-		userRepo:  userRepo,
-		redisRepo: redisRepo,
-		config:    cfg,
+		userRepo: userRepo,
+		adminRepo: adminRepo,
 	}
 }
 
-type SyncUserRequest struct {
-	Sub     string `json:"sub"`
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	Picture string `json:"picture"`
-}
-
-type SyncUserResponse struct {
-	User    *entities.User   `json:"user"`
-	School  *entities.School `json:"school"`
-	IsNewUser bool         `json:"is_new_user"`
-}
-
-func (u *AuthUsecase) SyncUser(ctx context.Context, req *SyncUserRequest) (*SyncUserResponse, error) {
-	// 既存ユーザーを検索
-	existingUser, err := u.userRepo.FindByUID(ctx, req.Sub)
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		return nil, fmt.Errorf("failed to find user: %w", err)
-	}
-
-	var user *entities.User
-	var school *entities.School
-	isNewUser := false
-
-	if existingUser != nil {
-		// 既存ユーザーの情報を更新
-		user = existingUser
-		if req.Name != "" {
-			user.Name = req.Name
-		}
-		if req.Picture != "" {
-			user.AvatarURL = &req.Picture
-		}
-
-		// 最後のログイン時間を更新
-		err = u.userRepo.UpdateLastLogin(ctx, req.Sub)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update last login: %w", err)
-		}
-
-		// 基本情報を更新
-		err = u.userRepo.Update(ctx, user)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update user: %w", err)
-		}
-	} else {
-		// 新しいユーザーを作成
-		isNewUser = true
-		
-		// メールドメインから学校を特定
-		schoolID := int64(1) // デフォルト学校
-		if req.Email != "" {
-			emailParts := strings.Split(req.Email, "@")
-			if len(emailParts) == 2 {
-				domain := emailParts[1]
-				foundSchool, err := u.userRepo.FindSchoolByEmailDomain(ctx, domain)
-				if err == nil {
-					schoolID = foundSchool.ID
-				}
-			}
-		}
-
-		// デフォルトのUI設定
-		uiPreferences := map[string]interface{}{
-			"theme":      "coral",
-			"background": u.config.BackgroundColor,
-		}
-		uiPreferencesJSON, _ := json.Marshal(uiPreferences)
-
-		user = &entities.User{
-			UID:           req.Sub,
-			Name:          req.Name,
-			Email:         req.Email,
-			AvatarURL:     &req.Picture,
-			Role:          "student", // デフォルト
-			SchoolID:      schoolID,
-			IsActive:      true,
-			IsApproved:    false, // 管理者による承認が必要
-			UIPreferences: string(uiPreferencesJSON),
-		}
-
-		err = u.userRepo.Create(ctx, user)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create user: %w", err)
-		}
-	}
-
-	// 学校情報を取得
-	school, err = u.userRepo.FindSchoolByID(ctx, user.SchoolID)
+// CreateInvitation ユーザー招待を作成
+func (u *AuthUsecase) CreateInvitation(ctx context.Context, name, email, role string, schoolID int64, message string) (*entities.UserInvitation, error) {
+	// 招待トークンを生成
+	token, err := generateSecureToken(32)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find school: %w", err)
+		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// セッションキャッシュ（30分）
-	sessionKey := fmt.Sprintf("session:%s", req.Sub)
-	sessionData := map[string]interface{}{
-		"user_id":   user.ID,
-		"school_id": user.SchoolID,
-		"role":      user.Role,
-		"synced_at": time.Now().Unix(),
-	}
-	
-	err = u.redisRepo.Set(ctx, sessionKey, sessionData, 30*60)
-	if err != nil {
-		// Redis エラーはログに記録するだけで処理は続行
-		fmt.Printf("Warning: failed to cache session: %v\n", err)
+	// 有効期限を設定（7日間）
+	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+	invitation := &entities.UserInvitation{
+		Name:      name,
+		Email:     email,
+		Role:      role,
+		SchoolID:  schoolID,
+		Message:   message,
+		Status:    "pending",
+		Token:     token,
+		ExpiresAt: expiresAt,
 	}
 
-	return &SyncUserResponse{
-		User:      user,
-		School:    school,
-		IsNewUser: isNewUser,
-	}, nil
+	// TODO: データベースに保存
+	// invitation, err = u.adminRepo.CreateInvitation(ctx, invitation)
+	// if err != nil {
+	//     return nil, fmt.Errorf("failed to create invitation: %w", err)
+	// }
+
+	// TODO: 招待メールを送信
+	// err = u.sendInvitationEmail(invitation)
+	// if err != nil {
+	//     return nil, fmt.Errorf("failed to send invitation email: %w", err)
+	// }
+
+	return invitation, nil
 }
 
-func (u *AuthUsecase) GetUserByUID(ctx context.Context, uid string) (*entities.User, error) {
-	// キャッシュから確認
-	sessionKey := fmt.Sprintf("session:%s", uid)
-	cachedData, err := u.redisRepo.Get(ctx, sessionKey)
-	if err == nil {
-		var sessionData map[string]interface{}
-		if json.Unmarshal([]byte(cachedData), &sessionData) == nil {
-			// キャッシュがある場合でも最新情報を取得
-		}
+// ValidateInvitation 招待トークンを検証
+func (u *AuthUsecase) ValidateInvitation(ctx context.Context, token string) (*entities.UserInvitation, error) {
+	// TODO: データベースから招待情報を取得
+	// invitation, err := u.adminRepo.GetInvitationByToken(ctx, token)
+	// if err != nil {
+	//     return nil, fmt.Errorf("invitation not found: %w", err)
+	// }
+
+	// モックデータ
+	invitation := &entities.UserInvitation{
+		ID:        1,
+		Name:      "テストユーザー",
+		Email:     "test@example.com",
+		Role:      "student",
+		SchoolID:  1,
+		Status:    "pending",
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
 
-	// データベースから取得
-	return u.userRepo.FindByUID(ctx, uid)
+	// 有効期限チェック
+	if time.Now().After(invitation.ExpiresAt) {
+		return nil, fmt.Errorf("invitation has expired")
+	}
+
+	// ステータスチェック
+	if invitation.Status != "pending" {
+		return nil, fmt.Errorf("invitation is no longer valid")
+	}
+
+	return invitation, nil
+}
+
+// RegisterUser 招待に基づいてユーザー登録
+func (u *AuthUsecase) RegisterUser(ctx context.Context, token, name, email, password string) (*entities.User, error) {
+	// 招待の検証
+	invitation, err := u.ValidateInvitation(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("invalid invitation: %w", err)
+	}
+
+	// パスワードのハッシュ化（Firebaseでは不要だが、将来の拡張用）
+	_, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// ユーザー作成
+	user := &entities.User{
+		Name:         name,
+		Email:        email,
+		Role:         invitation.Role,
+		SchoolID:     invitation.SchoolID,
+		IsActive:     true,
+		IsApproved:   true, // 招待されたユーザーは自動承認
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// TODO: データベースに保存
+	// user, err = u.userRepo.CreateUser(ctx, user, string(hashedPassword))
+	// if err != nil {
+	//     return nil, fmt.Errorf("failed to create user: %w", err)
+	// }
+
+	// TODO: 招待ステータスを更新
+	// err = u.adminRepo.UpdateInvitationStatus(ctx, invitation.ID, "accepted")
+	// if err != nil {
+	//     return nil, fmt.Errorf("failed to update invitation status: %w", err)
+	// }
+
+	return user, nil
+}
+
+// LoginUser ユーザーログイン
+func (u *AuthUsecase) LoginUser(ctx context.Context, email, password string) (*entities.User, error) {
+	// TODO: データベースからユーザーを取得
+	// user, err := u.userRepo.GetUserByEmail(ctx, email)
+	// if err != nil {
+	//     return nil, fmt.Errorf("user not found: %w", err)
+	// }
+
+	// モックデータ
+	user := &entities.User{
+		ID:         1,
+		Name:       "テストユーザー",
+		Email:      email,
+		Role:       "student",
+		SchoolID:   1,
+		IsActive:   true,
+		IsApproved: true,
+	}
+
+	// アクティブ状態チェック
+	if !user.IsActive {
+		return nil, fmt.Errorf("account is deactivated")
+	}
+
+	// 承認状態チェック
+	if !user.IsApproved {
+		return nil, fmt.Errorf("account is not approved")
+	}
+
+	// TODO: パスワード検証
+	// err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	// if err != nil {
+	//     return nil, fmt.Errorf("invalid password: %w", err)
+	// }
+
+	return user, nil
+}
+
+// generateSecureToken セキュアなトークンを生成
+func generateSecureToken(length int) (string, error) {
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }

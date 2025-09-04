@@ -29,7 +29,7 @@ func (r *userRepository) FindByUID(ctx context.Context, uid string) (*entities.U
 	var user entities.User
 	err := r.db.QueryRowContext(ctx, query, uid).Scan(
 		&user.ID,
-		&user.UID,
+		&user.FirebaseUID,
 		&user.Name,
 		&user.Furigana,
 		&user.Email,
@@ -69,7 +69,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*entiti
 	var user entities.User
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
-		&user.UID,
+		&user.FirebaseUID,
 		&user.Name,
 		&user.Furigana,
 		&user.Email,
@@ -106,7 +106,7 @@ func (r *userRepository) Create(ctx context.Context, user *entities.User) error 
 	`
 
 	err := r.db.QueryRowContext(ctx, query,
-		user.UID,
+		user.FirebaseUID,
 		user.Name,
 		user.Furigana,
 		user.Email,
@@ -139,7 +139,7 @@ func (r *userRepository) Update(ctx context.Context, user *entities.User) error 
 	`
 
 	err := r.db.QueryRowContext(ctx, query,
-		user.UID,
+		user.FirebaseUID,
 		user.Name,
 		user.Furigana,
 		user.Email,
@@ -154,7 +154,7 @@ func (r *userRepository) Update(ctx context.Context, user *entities.User) error 
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return fmt.Errorf("user not found for update: %s", user.UID)
+			return fmt.Errorf("user not found for update: %s", user.FirebaseUID)
 		}
 		return fmt.Errorf("failed to update user: %w", err)
 	}

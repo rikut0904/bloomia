@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useUser } from '@auth0/nextjs-auth0/client';
+import { useAuth } from '@/contexts/AuthContext';
 import '@/styles/app.css';
 
 // Force dynamic rendering
@@ -16,13 +16,8 @@ export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Auth0のuseUserフックを使用
-  const { user: auth0User, error, isLoading: auth0IsLoading } = useUser();
-
-  // Check if Auth0 is enabled
-  const isAuth0Enabled = typeof window !== 'undefined' && 
-                        process.env.NEXT_PUBLIC_AUTH0_ISSUER_BASE_URL && 
-                        process.env.NEXT_PUBLIC_AUTH0_ISSUER_BASE_URL.length > 0;
+  // Firebase AuthのuseAuthフックを使用
+  const { user: firebaseUser, loading: firebaseLoading } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -66,54 +61,33 @@ export default function HomePage() {
     if (!mounted) return;
 
     console.log('Home page state:', {
-      isAuth0Enabled,
-      auth0IsLoading,
-      auth0User: !!auth0User,
+      firebaseLoading,
+      firebaseUser: !!firebaseUser,
       user: !!user,
       isLoading
     });
 
-    if (isAuth0Enabled) {
-      if (auth0User && !auth0IsLoading) {
-        console.log('Auth0 user authenticated, syncing data...');
-        // Auth0ユーザーが認証済みの場合
-        const syncAndFetchData = async () => {
-          try {
-            await syncUser(); // PostgreSQLに同期
-            await fetchDashboardData(); // ダッシュボードデータを取得
-            console.log('User sync and data fetch completed');
-          } catch (error) {
-            console.error('Error during user sync or data fetch:', error);
-          } finally {
-            setIsLoading(false);
-          }
-        };
-        syncAndFetchData();
-      } else if (!auth0IsLoading && !auth0User) {
-        // 未認証の場合
-        console.log('No Auth0 user found, setting loading to false');
-        setIsLoading(false);
-      }
-    } else {
-      // モックユーザーの場合
-      const mockUserCookie = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('mock-user='));
-      
-      if (mockUserCookie) {
+    if (firebaseUser && !firebaseLoading) {
+      console.log('Firebase user authenticated, syncing data...');
+      // Firebaseユーザーが認証済みの場合
+      const syncAndFetchData = async () => {
         try {
-          const userData = JSON.parse(decodeURIComponent(mockUserCookie.split('=')[1]));
-          setUser(userData);
-          // モック用のダッシュボードデータも設定
-          fetchDashboardData();
-          console.log('Mock user data loaded');
+          await syncUser(); // PostgreSQLに同期
+          await fetchDashboardData(); // ダッシュボードデータを取得
+          console.log('User sync and data fetch completed');
         } catch (error) {
-          console.error('Error parsing mock user cookie:', error);
+          console.error('Error during user sync or data fetch:', error);
+        } finally {
+          setIsLoading(false);
         }
-      }
+      };
+      syncAndFetchData();
+    } else if (!firebaseLoading && !firebaseUser) {
+      // 未認証の場合
+      console.log('No Firebase user found, setting loading to false');
       setIsLoading(false);
     }
-  }, [mounted, isAuth0Enabled, auth0User, auth0IsLoading]);
+  }, [mounted, firebaseUser, firebaseLoading]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -127,18 +101,11 @@ export default function HomePage() {
   useEffect(() => {
     if (!mounted) return;
     
-    if (isAuth0Enabled) {
-      // Auth0が有効な場合は、auth0IsLoadingが完了してからリダイレクト判定
-      if (!auth0IsLoading && !auth0User) {
-        router.push('/login');
-      }
-    } else {
-      // モックの場合は従来通り
-      if (!isLoading && !user) {
-        router.push('/login');
-      }
+    // Firebase認証の場合は、firebaseLoadingが完了してからリダイレクト判定
+    if (!firebaseLoading && !firebaseUser) {
+      router.push('/login');
     }
-  }, [user, isLoading, router, mounted, isAuth0Enabled, auth0User, auth0IsLoading]);
+  }, [firebaseUser, firebaseLoading, router, mounted]);
 
   const toggleTheme = () => {
     const next = !darkMode;
@@ -162,7 +129,7 @@ export default function HomePage() {
   ];
 
   // Show loading until mounted and user is determined
-  if (!mounted || (isAuth0Enabled && auth0IsLoading) || isLoading) {
+  if (!mounted || firebaseLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: '#fdf8f0'}}>
         <div className="text-center">
@@ -261,18 +228,14 @@ export default function HomePage() {
             {darkMode ? '☀️' : '🌙'}
           </button>
           <Button
-            onClick={() => {
-              if (isAuth0Enabled) {
-                // シンプルで確実なAuth0ログアウト処理
-                // 1. ローカルストレージとセッションストレージをクリア
-                localStorage.clear();
-                sessionStorage.clear();
-                
-                // 2. Auth0のログアウトエンドポイントを使用（シンプルで確実）
-                window.location.href = '/api/auth/logout';
-              } else {
-                // Mock logout
-                document.cookie = 'mock-user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            onClick={async () => {
+              // Firebase Authのログアウト処理
+              try {
+                const { logout } = await import('@/lib/auth');
+                await logout();
+                window.location.href = '/login';
+              } catch (error) {
+                console.error('Logout error:', error);
                 window.location.href = '/login';
               }
             }}

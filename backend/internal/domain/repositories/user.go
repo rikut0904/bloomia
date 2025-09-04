@@ -30,6 +30,20 @@ type DashboardRepository interface {
 	GetUserSchedule(ctx context.Context, userID int64, schoolID int64) ([]entities.ScheduleItem, error)
 }
 
+type AdminRepository interface {
+	// ユーザー管理
+	GetAllUsers(ctx context.Context, page, perPage int, schoolID *int64) ([]entities.UserManagement, int, error)
+	UpdateUserRole(ctx context.Context, userID int64, role string, schoolID *int64) error
+	UpdateUserStatus(ctx context.Context, userID int64, isActive, isApproved bool) error
+	GetUserByID(ctx context.Context, userID int64) (*entities.UserManagement, error)
+	
+	// 学校管理
+	GetAllSchools(ctx context.Context) ([]entities.SchoolOption, error)
+	
+	// 統計情報
+	GetUserStatsByRole(ctx context.Context, schoolID *int64) (map[string]int, error)
+}
+
 type RedisRepository interface {
 	Set(ctx context.Context, key string, value interface{}, expiration int) error
 	Get(ctx context.Context, key string) (string, error)

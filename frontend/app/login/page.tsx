@@ -1,10 +1,38 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { signIn } = useAuth();
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      await signIn(email, password);
+      router.push('/home');
+    } catch (error: any) {
+      setError(error.message || 'ログインに失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
@@ -20,18 +48,45 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            <div className="text-center">
-              <p className="text-muted-foreground mb-6">学校アカウントでログインしてください</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-              {/* Auth0 Login Button - This will be connected to Auth0 later */}
+              <div>
+                <Label htmlFor="email">メールアドレス</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password">パスワード</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+
               <Button
+                type="submit"
                 size="lg"
                 className="w-full py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                asChild
+                disabled={loading}
+                style={{ backgroundColor: '#FF7F50', color: 'white' }}
               >
-                <Link href="/api/auth/login">学校アカウントでログイン</Link>
+                {loading ? 'ログイン中...' : 'ログイン'}
               </Button>
-            </div>
+            </form>
 
             <div className="text-center space-y-2">
               <p className="text-sm text-muted-foreground">アカウントをお持ちでない場合は</p>

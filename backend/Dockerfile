@@ -2,7 +2,7 @@
 # This Dockerfile automatically generates go.mod and go.sum from source code
 
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install git and ca-certificates for downloading modules and HTTPS requests
 RUN apk update && apk add --no-cache git ca-certificates && update-ca-certificates

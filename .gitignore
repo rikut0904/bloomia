@@ -51,10 +51,7 @@ Thumbs.db
 *.swn
 *.bak
 
-# Windows Zone.Identifier files
-*:Zone.Identifier
-*:Zone.Identifier:$DATA
-
-# VSCode
-.vscode/*
-!.vscode/settings.json
+# ===============================
+# 秘密鍵
+# ===============================
+service-account-key.json
