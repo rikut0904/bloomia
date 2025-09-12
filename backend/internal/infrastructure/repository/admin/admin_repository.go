@@ -17,13 +17,13 @@ func NewAdminRepository(db *sql.DB) repositories.AdminRepository {
 	return &adminRepository{db: db}
 }
 
-func (r *adminRepository) GetAllUsers(ctx context.Context, page, perPage int, schoolID *int64) ([]entities.UserManagement, int, error) {
+func (r *adminRepository) GetAllUsers(ctx context.Context, page, perPage int, schoolID *string) ([]entities.UserManagement, int, error) {
 	// Count total users
 	countQuery := `
 		SELECT COUNT(*) 
 		FROM users u 
-		JOIN schools s ON u.school_id = s.id 
-		WHERE u.is_active = true
+		LEFT JOIN schools s ON u.school_id = s.id
+		WHERE 1=1
 	`
 	args := []interface{}{}
 	argIndex := 1
@@ -42,15 +42,18 @@ func (r *adminRepository) GetAllUsers(ctx context.Context, page, perPage int, sc
 
 	// Get paginated users
 	query := `
-		SELECT u.id, u.uid, u.name, u.email, u.role, u.school_id, s.name as school_name,
-			   u.is_active, u.is_approved, u.last_login_at, u.created_at, u.updated_at
+		SELECT u.id, u.firebase_uid, u.name, u.email, u.role, 
+			   u.school_id, s.name,
+			   u.is_active, u.is_approved,
+			   u.created_at, u.updated_at
 		FROM users u
-		JOIN schools s ON u.school_id = s.id
-		WHERE u.is_active = true
+		LEFT JOIN schools s ON u.school_id = s.id
+		WHERE 1=1
 	`
 
 	if schoolID != nil {
 		query += fmt.Sprintf(" AND u.school_id = $%d", argIndex)
+		args = append(args, *schoolID)
 		argIndex++
 	}
 
@@ -66,34 +69,46 @@ func (r *adminRepository) GetAllUsers(ctx context.Context, page, perPage int, sc
 	var users []entities.UserManagement
 	for rows.Next() {
 		var user entities.UserManagement
+		var schoolID sql.NullInt64
+		var schoolName sql.NullString
+		
 		err := rows.Scan(
 			&user.ID,
 			&user.FirebaseUID,
 			&user.Name,
 			&user.Email,
 			&user.Role,
-			&user.SchoolID,
-			&user.SchoolName,
+			&schoolID,
+			&schoolName,
 			&user.IsActive,
 			&user.IsApproved,
-			&user.LastLoginAt,
 			&user.CreatedAt,
 			&user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan user: %w", err)
 		}
+		
+		// NULLチェックしてポインターに変換
+		if schoolID.Valid {
+			schoolIDStr := fmt.Sprintf("%d", schoolID.Int64)
+			user.SchoolID = &schoolIDStr
+		}
+		if schoolName.Valid {
+			user.SchoolName = &schoolName.String
+		}
+		
 		users = append(users, user)
 	}
 
 	return users, totalCount, nil
 }
 
-func (r *adminRepository) UpdateUserRole(ctx context.Context, userID int64, role string, schoolID *int64) error {
+func (r *adminRepository) UpdateUserRole(ctx context.Context, userID string, role string, schoolID *string) error {
 	query := `
 		UPDATE users 
 		SET role = $2, school_id = COALESCE($3, school_id), updated_at = NOW()
-		WHERE id = $1 AND is_active = true
+		WHERE id::text = $1
 	`
 	
 	_, err := r.db.ExecContext(ctx, query, userID, role, schoolID)
@@ -104,7 +119,7 @@ func (r *adminRepository) UpdateUserRole(ctx context.Context, userID int64, role
 	return nil
 }
 
-func (r *adminRepository) UpdateUserStatus(ctx context.Context, userID int64, isActive, isApproved bool) error {
+func (r *adminRepository) UpdateUserStatus(ctx context.Context, userID string, isActive, isApproved bool) error {
 	query := `
 		UPDATE users 
 		SET is_active = $2, is_approved = $3, updated_at = NOW()
@@ -119,34 +134,47 @@ func (r *adminRepository) UpdateUserStatus(ctx context.Context, userID int64, is
 	return nil
 }
 
-func (r *adminRepository) GetUserByID(ctx context.Context, userID int64) (*entities.UserManagement, error) {
+func (r *adminRepository) GetUserByID(ctx context.Context, userID string) (*entities.UserManagement, error) {
 	query := `
-		SELECT u.id, u.uid, u.name, u.email, u.role, u.school_id, s.name as school_name,
-			   u.is_active, u.is_approved, u.last_login_at, u.created_at, u.updated_at
+		SELECT u.id, u.firebase_uid, u.name, u.email, u.role, 
+			   u.school_id, s.name,
+			   u.is_active, u.is_approved,
+			   u.created_at, u.updated_at
 		FROM users u
-		JOIN schools s ON u.school_id = s.id
+		LEFT JOIN schools s ON u.school_id = s.id
 		WHERE u.id = $1
 	`
 	
 	var user entities.UserManagement
+	var schoolID sql.NullInt64
+	var schoolName sql.NullString
+	
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
 		&user.ID,
 		&user.FirebaseUID,
 		&user.Name,
 		&user.Email,
 		&user.Role,
-		&user.SchoolID,
-		&user.SchoolName,
+		&schoolID,
+		&schoolName,
 		&user.IsActive,
 		&user.IsApproved,
-		&user.LastLoginAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
 	
+	// NULLチェックしてポインターに変換
+	if schoolID.Valid {
+		schoolIDStr := fmt.Sprintf("%d", schoolID.Int64)
+		user.SchoolID = &schoolIDStr
+	}
+	if schoolName.Valid {
+		user.SchoolName = &schoolName.String
+	}
+	
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found with id: %d", userID)
+			return nil, fmt.Errorf("user not found with id: %s", userID)
 		}
 		return nil, fmt.Errorf("failed to get user by id: %w", err)
 	}
@@ -158,7 +186,6 @@ func (r *adminRepository) GetAllSchools(ctx context.Context) ([]entities.SchoolO
 	query := `
 		SELECT id, name, code
 		FROM schools
-		WHERE is_active = true
 		ORDER BY name
 	`
 	
@@ -181,16 +208,15 @@ func (r *adminRepository) GetAllSchools(ctx context.Context) ([]entities.SchoolO
 	return schools, nil
 }
 
-func (r *adminRepository) GetUserStatsByRole(ctx context.Context, schoolID *int64) (map[string]int, error) {
+func (r *adminRepository) GetUserStatsByRole(ctx context.Context, schoolID *string) (map[string]int, error) {
 	query := `
 		SELECT role, COUNT(*) as count
 		FROM users
-		WHERE is_active = true
 	`
 	args := []interface{}{}
 	
 	if schoolID != nil {
-		query += " AND school_id = $1"
+		query += " WHERE school_id = $1"
 		args = append(args, *schoolID)
 	}
 	

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/rikut0904/bloomia/backend/internal/domain/entities"
@@ -25,7 +26,7 @@ func NewAuthUsecase(userRepo repositories.UserRepository, adminRepo repositories
 }
 
 // CreateInvitation ユーザー招待を作成
-func (u *AuthUsecase) CreateInvitation(ctx context.Context, name, email, role string, schoolID int64, message string) (*entities.UserInvitation, error) {
+func (u *AuthUsecase) CreateInvitation(ctx context.Context, name, email, role string, schoolID string, message string) (*entities.UserInvitation, error) {
 	// 招待トークンを生成
 	token, err := generateSecureToken(32)
 	if err != nil {
@@ -71,11 +72,11 @@ func (u *AuthUsecase) ValidateInvitation(ctx context.Context, token string) (*en
 
 	// モックデータ
 	invitation := &entities.UserInvitation{
-		ID:        1,
+		ID:        "1",
 		Name:      "テストユーザー",
 		Email:     "test@example.com",
 		Role:      "student",
-		SchoolID:  1,
+		SchoolID:  "1",
 		Status:    "pending",
 		Token:     token,
 		ExpiresAt: time.Now().Add(24 * time.Hour),
@@ -108,12 +109,18 @@ func (u *AuthUsecase) RegisterUser(ctx context.Context, token, name, email, pass
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	// SchoolIDをint64に変換
+	schoolIDInt, err := strconv.ParseInt(invitation.SchoolID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid school ID: %w", err)
+	}
+
 	// ユーザー作成
 	user := &entities.User{
 		Name:         name,
 		Email:        email,
 		Role:         invitation.Role,
-		SchoolID:     invitation.SchoolID,
+		SchoolID:     schoolIDInt,
 		IsActive:     true,
 		IsApproved:   true, // 招待されたユーザーは自動承認
 		CreatedAt:    time.Now(),
@@ -170,6 +177,81 @@ func (u *AuthUsecase) LoginUser(ctx context.Context, email, password string) (*e
 	//     return nil, fmt.Errorf("invalid password: %w", err)
 	// }
 
+	return user, nil
+}
+
+// SyncUser Firebase認証とデータベースの同期
+func (u *AuthUsecase) SyncUser(ctx context.Context, firebaseUID, email string, displayName, schoolID, role *string) (*entities.User, error) {
+	// 既存ユーザーをチェック
+	existingUser, err := u.userRepo.GetUserByFirebaseUID(ctx, firebaseUID)
+	if err == nil && existingUser != nil {
+		// 既存ユーザーの場合は更新
+		updateData := entities.User{
+			Email: email,
+		}
+		
+		if displayName != nil {
+			updateData.Name = *displayName
+		}
+		if role != nil {
+			updateData.Role = *role
+		}
+		if schoolID != nil {
+			schoolIDInt, err := strconv.ParseInt(*schoolID, 10, 64)
+			if err == nil {
+				updateData.SchoolID = schoolIDInt
+			}
+		}
+		
+		updatedUser, err := u.userRepo.UpdateUser(ctx, existingUser.ID, updateData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update user: %w", err)
+		}
+		
+		return updatedUser, nil
+	}
+	
+	// 新規ユーザーの場合は作成
+	newUser := &entities.User{
+		FirebaseUID: firebaseUID,
+		Email:       email,
+		Name:        email, // デフォルトはメールアドレス
+		Role:        "student", // デフォルトロール
+		SchoolID:    1,  // デフォルト学校ID
+		IsActive:    true,
+		IsApproved:  true,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	
+	if displayName != nil && *displayName != "" {
+		newUser.Name = *displayName
+	}
+	if role != nil {
+		newUser.Role = *role
+	}
+	if schoolID != nil {
+		schoolIDInt, err := strconv.ParseInt(*schoolID, 10, 64)
+		if err == nil {
+			newUser.SchoolID = schoolIDInt
+		}
+	}
+	
+	createdUser, err := u.userRepo.CreateUser(ctx, newUser)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+	
+	return createdUser, nil
+}
+
+// GetUserByFirebaseUID Firebase UIDでユーザーを取得
+func (u *AuthUsecase) GetUserByFirebaseUID(ctx context.Context, firebaseUID string) (*entities.User, error) {
+	user, err := u.userRepo.GetUserByFirebaseUID(ctx, firebaseUID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+	
 	return user, nil
 }
 

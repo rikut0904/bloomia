@@ -1,0 +1,75 @@
+/* Bloomia コーラルテーマ設定 */
+
+/* テーマの基本設定 */
+.theme-coral {
+  --primary-color: #FF7F50;
+  --primary-light: #FFB07A;
+  --primary-dark: #E55A2B;
+  --background-color: #fdf8f0;
+  --surface-color: #FFFFFF;
+  --text-primary: #2F1B14;
+  --text-secondary: #8B4513;
+  --border-color: #DEB887;
+  --shadow-color: rgba(255, 127, 80, 0.2);
+}
+
+/* ダークモード（コーラルテーマ対応） */
+.theme-coral.dark {
+  --primary-color: #FFB07A;
+  --primary-light: #FFCBA4;
+  --primary-dark: #FF7F50;
+  --background-color: #1a1210;
+  --surface-color: #2d1f1a;
+  --text-primary: #f5e6d3;
+  --text-secondary: #d4a574;
+  --border-color: #5d4a39;
+  --shadow-color: rgba(255, 176, 122, 0.2);
+}
+
+/* 学校別カラーテーマ（将来の拡張用） */
+.school-theme-1 {
+  --primary-color: #FF7F50;
+  --background-color: #fdf8f0;
+}
+
+.school-theme-2 {
+  --primary-color: #FF8C69;
+  --background-color: #fff9f5;
+}
+
+.school-theme-3 {
+  --primary-color: #FFA07A;
+  --background-color: #fefaf7;
+}
+
+/* アクセシビリティ対応 */
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary,
+  .card,
+  .dashboard-tile {
+    transition: none;
+  }
+}
+
+@media (prefers-contrast: high) {
+  :root {
+    --primary: #E55A2B;
+    --text-primary: #000000;
+    --border: #8B4513;
+  }
+}
+
+/* 印刷時の調整 */
+@media print {
+  .btn-primary,
+  .dashboard-tile {
+    background: #FF7F50 !important;
+    color: white !important;
+    box-shadow: none !important;
+  }
+  
+  .page-background,
+  body {
+    background: white !important;
+  }
+}

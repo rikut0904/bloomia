@@ -6,6 +6,8 @@ import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { Suspense } from "react"
 import "./globals.css"
+import "../styles/themes.css"
+import "../styles/components.css"
 
 export const metadata: Metadata = {
   title: "Bloomia - 中学校向け統合学習・公務支援システム",

@@ -1,48 +1,4 @@
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: bloomia_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: "--auth-host=md5 --auth-local=trust"
-      PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/pgdata
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - bloomia_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: bloomia_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - bloomia_network
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
   # Frontend (Next.js)
   frontend:
     build:
@@ -60,8 +16,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
       - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
       - DEFAULT_BACKGROUND_COLOR=#fdf8f0
       - DEFAULT_THEME_COLOR=#FF7F50
@@ -77,15 +34,13 @@ services:
       - bloomia_network
     depends_on:
       - backend
-      - postgres
-      - redis
     # Remove volume mounts to use built files from Docker image
     # volumes:
     #   - ./frontend:/app
     #   - /app/node_modules
     #   - /app/.next
 
-  # Backend (Go)
+    # Backend (Go)
   backend:
     build:
       context: ./backend
@@ -115,13 +70,12 @@ services:
       - ENABLE_NOTES=true
       - ENABLE_GAMIFICATION=true
       - CORAL_THEME_ONLY=true
+      # 認証設定（開発環境）
+      - DISABLE_AUTH=false
+      - MOCK_USER_ROLE=admin
+      - MOCK_USER_SCHOOL_ID=1
     networks:
       - bloomia_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -138,10 +92,6 @@ services:
     #   retries: 3
 
 volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
   backend_storage:
     driver: local
 

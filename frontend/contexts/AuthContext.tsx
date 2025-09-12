@@ -7,7 +7,10 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  signInWithSchoolId: (email: string, password: string, schoolId: string) => Promise<void>;
+  signInAdmin: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, schoolId: string, displayName?: string) => Promise<void>;
+  signUpAdmin: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -44,9 +47,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await firebaseSignIn(email, password);
   };
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
+  const signInWithSchoolId = async (email: string, password: string, schoolId: string) => {
+    const { signInWithSchoolId: firebaseSignInWithSchoolId } = await import('@/lib/auth');
+    await firebaseSignInWithSchoolId(email, password, schoolId);
+  };
+
+  const signInAdmin = async (email: string, password: string) => {
+    const { signInAdmin: firebaseSignInAdmin } = await import('@/lib/auth');
+    await firebaseSignInAdmin(email, password);
+  };
+
+  const signUp = async (email: string, password: string, schoolId: string, displayName?: string) => {
     const { signUp: firebaseSignUp } = await import('@/lib/auth');
-    await firebaseSignUp(email, password, displayName);
+    await firebaseSignUp(email, password, schoolId, displayName);
+  };
+
+  const signUpAdmin = async (email: string, password: string, displayName?: string) => {
+    const { signUpAdmin: firebaseSignUpAdmin } = await import('@/lib/auth');
+    await firebaseSignUpAdmin(email, password, displayName);
   };
 
   const logout = async () => {
@@ -63,7 +81,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     loading,
     signIn,
+    signInWithSchoolId,
+    signInAdmin,
     signUp,
+    signUpAdmin,
     logout,
     resetPassword,
   };

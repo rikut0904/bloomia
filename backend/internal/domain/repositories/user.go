@@ -14,6 +14,11 @@ type UserRepository interface {
 	Update(ctx context.Context, user *entities.User) error
 	UpdateLastLogin(ctx context.Context, uid string) error
 	
+	// Firebase認証関連
+	GetUserByFirebaseUID(ctx context.Context, firebaseUID string) (*entities.User, error)
+	CreateUser(ctx context.Context, user *entities.User) (*entities.User, error)
+	UpdateUser(ctx context.Context, userID int64, updateData entities.User) (*entities.User, error)
+	
 	// 学校関連
 	FindSchoolByID(ctx context.Context, schoolID int64) (*entities.School, error)
 	FindSchoolByEmailDomain(ctx context.Context, domain string) (*entities.School, error)
@@ -32,16 +37,30 @@ type DashboardRepository interface {
 
 type AdminRepository interface {
 	// ユーザー管理
-	GetAllUsers(ctx context.Context, page, perPage int, schoolID *int64) ([]entities.UserManagement, int, error)
-	UpdateUserRole(ctx context.Context, userID int64, role string, schoolID *int64) error
-	UpdateUserStatus(ctx context.Context, userID int64, isActive, isApproved bool) error
-	GetUserByID(ctx context.Context, userID int64) (*entities.UserManagement, error)
+	GetAllUsers(ctx context.Context, page, perPage int, schoolID *string) ([]entities.UserManagement, int, error)
+	UpdateUserRole(ctx context.Context, userID string, role string, schoolID *string) error
+	UpdateUserStatus(ctx context.Context, userID string, isActive, isApproved bool) error
+	GetUserByID(ctx context.Context, userID string) (*entities.UserManagement, error)
 	
 	// 学校管理
 	GetAllSchools(ctx context.Context) ([]entities.SchoolOption, error)
 	
 	// 統計情報
-	GetUserStatsByRole(ctx context.Context, schoolID *int64) (map[string]int, error)
+	GetUserStatsByRole(ctx context.Context, schoolID *string) (map[string]int, error)
+}
+
+type SchoolRepository interface {
+	// 学校CRUD操作
+	CreateSchool(ctx context.Context, school *entities.School) (*entities.School, error)
+	GetSchoolByID(ctx context.Context, schoolID int64) (*entities.School, error)
+	GetSchoolByCode(ctx context.Context, code string) (*entities.School, error)
+	GetAllSchools(ctx context.Context, filters map[string]interface{}) ([]*entities.School, error)
+	UpdateSchool(ctx context.Context, schoolID int64, updateData entities.School) (*entities.School, error)
+	DeleteSchool(ctx context.Context, schoolID int64) error
+	
+	// 学校統計・管理
+	GetSchoolStats(ctx context.Context, schoolID int64) (map[string]interface{}, error)
+	GetSchoolUsers(ctx context.Context, schoolID int64, role string) ([]*entities.User, error)
 }
 
 type RedisRepository interface {

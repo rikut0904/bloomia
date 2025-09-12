@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ export default function AdminLayout({
 }) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -21,16 +22,22 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (!mounted) return;
-
-    if (!loading && !user) {
-      router.push('/login');
+    
+    // ログインページは認証チェックを行わない
+    if (pathname === '/admin/login') {
       return;
     }
 
-    // TODO: 実際の権限チェック実装
-    // Firebaseのカスタムクレームからroleを取得して管理者権限をチェック
-    // 現在はユーザーが存在すれば管理者として扱う
-  }, [mounted, loading, user, router]);
+    if (!loading && !user) {
+      router.push('/admin/login');
+      return;
+    }
+
+    if (!loading && user && user.role !== 'admin') {
+      router.push('/admin/login');
+      return;
+    }
+  }, [mounted, loading, user, router, pathname]);
 
   if (!mounted || loading) {
     return (
@@ -41,6 +48,11 @@ export default function AdminLayout({
         </div>
       </div>
     );
+  }
+
+  // ログインページはレイアウトなしで表示
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
   }
 
   if (!user) {
@@ -88,14 +100,18 @@ export default function AdminLayout({
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium" style={{ color: '#2F1B14' }}>
-                  {user.name || user.email}
+                  {user.displayName || user.email}
                 </p>
                 <p className="text-xs" style={{ color: '#8B4513' }}>
                   システム管理者
                 </p>
               </div>
               <Button
-                onClick={() => window.location.href = '/api/auth/logout'}
+                onClick={async () => {
+                  const { logout } = await import('@/lib/auth');
+                  await logout();
+                  router.push('/admin/login');
+                }}
                 variant="outline"
                 size="sm"
                 style={{ borderColor: '#FF7F50', color: '#FF7F50' }}

@@ -23,19 +23,23 @@ type User struct {
 }
 
 type School struct {
-	ID              int64     `json:"id" db:"id"`
-	Name            string    `json:"name" db:"name"`
-	Code            string    `json:"code" db:"code"`
-	EmailDomain     *string   `json:"email_domain" db:"email_domain"`
-	ThemeColor      string    `json:"theme_color" db:"theme_color"`
-	BackgroundColor string    `json:"background_color" db:"background_color"`
-	LogoURL         *string   `json:"logo_url" db:"logo_url"`
-	Address         *string   `json:"address" db:"address"`
-	PhoneNumber     *string   `json:"phone_number" db:"phone_number"`
-	Settings        string    `json:"settings" db:"settings"`
-	IsActive        bool      `json:"is_active" db:"is_active"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+	ID                  int64     `json:"id" db:"id"`
+	Name                string    `json:"name" db:"name"`
+	Code                string    `json:"code" db:"code"`
+	EmailDomain         *string   `json:"email_domain" db:"email_domain"`
+	ThemeColor          string    `json:"theme_color" db:"theme_color"`
+	BackgroundColor     string    `json:"background_color" db:"background_color"`
+	LogoURL             *string   `json:"logo_url" db:"logo_url"`
+	Address             *string   `json:"address" db:"address"`
+	PhoneNumber         *string   `json:"phone_number" db:"phone_number"`
+	PrincipalName       *string   `json:"principal_name" db:"principal_name"`
+	VicePrincipalName   *string   `json:"vice_principal_name" db:"vice_principal_name"`
+	StudentCapacity     int       `json:"student_capacity" db:"student_capacity"`
+	Settings            string    `json:"settings" db:"settings"`
+	AcademicYearStart   int       `json:"academic_year_start" db:"academic_year_start"`
+	IsActive            bool      `json:"is_active" db:"is_active"`
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type Class struct {

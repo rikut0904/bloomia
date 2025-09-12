@@ -28,6 +28,10 @@ type Config struct {
 	EnableNotes       bool
 	EnableGameify     bool
 	CoralThemeOnly    bool
+	// 認証関連の設定
+	DisableAuth       bool   // 開発環境で認証を無効化
+	MockUserRole      string // モックユーザーのロール
+	MockUserSchoolID  string // モックユーザーの学校ID
 }
 
 func Load() *Config {
@@ -57,6 +61,10 @@ func Load() *Config {
 		EnableNotes:       getBoolEnv("ENABLE_NOTES", true),
 		EnableGameify:     getBoolEnv("ENABLE_GAMIFICATION", true),
 		CoralThemeOnly:    getBoolEnv("CORAL_THEME_ONLY", true),
+		// 認証関連の設定
+		DisableAuth:       getBoolEnv("DISABLE_AUTH", false),
+		MockUserRole:      getEnv("MOCK_USER_ROLE", "admin"),
+		MockUserSchoolID:  getEnv("MOCK_USER_SCHOOL_ID", "1"),
 	}
 }
 

@@ -31,7 +31,7 @@ export default function HomePage() {
   // APIからダッシュボードデータを取得
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch('/api/dashboard?role=student');
+      const response = await fetch(`/api/dashboard?uid=${firebaseUser?.uid}`);
       if (response.ok) {
         const data = await response.json();
         setDashboardData(data);
@@ -47,7 +47,19 @@ export default function HomePage() {
   // ユーザー同期を実行
   const syncUser = async () => {
     try {
-      const response = await fetch('/api/auth/sync', { method: 'POST' });
+      const response = await fetch('/api/auth/sync', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firebaseUid: firebaseUser?.uid,
+          email: firebaseUser?.email,
+          displayName: firebaseUser?.displayName,
+          schoolId: 'default-school', // デフォルトスクールID
+          role: 'user' // デフォルトロール
+        })
+      });
       if (response.ok) {
         const syncData = await response.json();
         console.log('User synced:', syncData);
@@ -64,7 +76,12 @@ export default function HomePage() {
       firebaseLoading,
       firebaseUser: !!firebaseUser,
       user: !!user,
-      isLoading
+      isLoading,
+      firebaseUserDetails: firebaseUser ? {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName
+      } : null
     });
 
     if (firebaseUser && !firebaseLoading) {
@@ -102,8 +119,10 @@ export default function HomePage() {
     if (!mounted) return;
     
     // Firebase認証の場合は、firebaseLoadingが完了してからリダイレクト判定
+    // 一時的にリダイレクトを無効化してデバッグ
     if (!firebaseLoading && !firebaseUser) {
-      router.push('/login');
+      console.log('No Firebase user found, but not redirecting for debugging');
+      // router.push('/login');
     }
   }, [firebaseUser, firebaseLoading, router, mounted]);
 
@@ -140,8 +159,20 @@ export default function HomePage() {
     );
   }
 
-  if (!user) {
-    return null; // リダイレクト中
+  // 認証されていないユーザーでもページを表示（デバッグ用）
+  if (!user && !firebaseUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: '#fdf8f0'}}>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4" style={{color: '#FF7F50'}}>Bloomia</h1>
+          <p className="text-lg mb-4">認証されていません</p>
+          <p className="text-sm text-gray-600 mb-4">Firebase認証の状態を確認中...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto mb-4" style={{borderColor: '#FF7F50'}}></div>
+          <p className="text-sm">firebaseLoading: {firebaseLoading ? 'true' : 'false'}</p>
+          <p className="text-sm">firebaseUser: {firebaseUser ? 'authenticated' : 'not authenticated'}</p>
+        </div>
+      </div>
+    );
   }
 
   return (

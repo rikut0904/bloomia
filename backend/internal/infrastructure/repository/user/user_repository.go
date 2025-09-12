@@ -19,11 +19,11 @@ func NewUserRepository(db *sql.DB) repositories.UserRepository {
 
 func (r *userRepository) FindByUID(ctx context.Context, uid string) (*entities.User, error) {
 	query := `
-		SELECT id, uid, name, furigana, email, avatar_url, role, school_id, class_id, 
+		SELECT id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
 			   student_number, grade, is_active, is_approved, ui_preferences, 
 			   last_login_at, created_at, updated_at
 		FROM users 
-		WHERE uid = $1 AND is_active = true
+		WHERE firebase_uid = $1 AND is_active = true
 	`
 	
 	var user entities.User
@@ -59,7 +59,7 @@ func (r *userRepository) FindByUID(ctx context.Context, uid string) (*entities.U
 
 func (r *userRepository) FindByEmail(ctx context.Context, email string) (*entities.User, error) {
 	query := `
-		SELECT id, uid, name, furigana, email, avatar_url, role, school_id, class_id, 
+		SELECT id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
 			   student_number, grade, is_active, is_approved, ui_preferences, 
 			   last_login_at, created_at, updated_at
 		FROM users 
@@ -99,7 +99,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*entiti
 
 func (r *userRepository) Create(ctx context.Context, user *entities.User) error {
 	query := `
-		INSERT INTO users (uid, name, furigana, email, avatar_url, role, school_id, class_id, 
+		INSERT INTO users (firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
 						   student_number, grade, ui_preferences, is_active, is_approved)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, created_at, updated_at
@@ -134,7 +134,7 @@ func (r *userRepository) Update(ctx context.Context, user *entities.User) error 
 		SET name = $2, furigana = $3, email = $4, avatar_url = $5, role = $6, 
 			class_id = $7, student_number = $8, grade = $9, ui_preferences = $10, 
 			is_approved = $11, updated_at = NOW()
-		WHERE uid = $1 AND is_active = true
+		WHERE firebase_uid = $1 AND is_active = true
 		RETURNING updated_at
 	`
 
@@ -166,7 +166,7 @@ func (r *userRepository) UpdateLastLogin(ctx context.Context, uid string) error 
 	query := `
 		UPDATE users 
 		SET last_login_at = NOW() 
-		WHERE uid = $1 AND is_active = true
+		WHERE firebase_uid = $1 AND is_active = true
 	`
 
 	_, err := r.db.ExecContext(ctx, query, uid)
@@ -283,4 +283,134 @@ func (r *userRepository) FindClassByID(ctx context.Context, classID int64) (*ent
 	}
 
 	return &class, nil
+}
+
+// GetUserByFirebaseUID Firebase UIDでユーザーを取得
+func (r *userRepository) GetUserByFirebaseUID(ctx context.Context, firebaseUID string) (*entities.User, error) {
+	query := `
+		SELECT id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
+			   student_number, grade, is_active, is_approved, ui_preferences, 
+			   last_login_at, created_at, updated_at
+		FROM users 
+		WHERE firebase_uid = $1
+	`
+	
+	var user entities.User
+	err := r.db.QueryRowContext(ctx, query, firebaseUID).Scan(
+		&user.ID,
+		&user.FirebaseUID,
+		&user.Name,
+		&user.Furigana,
+		&user.Email,
+		&user.AvatarURL,
+		&user.Role,
+		&user.SchoolID,
+		&user.ClassID,
+		&user.StudentNumber,
+		&user.Grade,
+		&user.IsActive,
+		&user.IsApproved,
+		&user.UIPreferences,
+		&user.LastLoginAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found with firebase uid: %s", firebaseUID)
+		}
+		return nil, fmt.Errorf("failed to find user by firebase uid: %w", err)
+	}
+
+	return &user, nil
+}
+
+// CreateUser ユーザーを作成（戻り値として作成されたユーザーを返す）
+func (r *userRepository) CreateUser(ctx context.Context, user *entities.User) (*entities.User, error) {
+	query := `
+		INSERT INTO users (firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
+						   student_number, grade, ui_preferences, is_active, is_approved)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id, created_at, updated_at
+	`
+
+	err := r.db.QueryRowContext(ctx, query,
+		user.FirebaseUID,
+		user.Name,
+		user.Furigana,
+		user.Email,
+		user.AvatarURL,
+		user.Role,
+		user.SchoolID,
+		user.ClassID,
+		user.StudentNumber,
+		user.Grade,
+		user.UIPreferences,
+		user.IsActive,
+		user.IsApproved,
+	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return user, nil
+}
+
+// UpdateUser ユーザーを更新（戻り値として更新されたユーザーを返す）
+func (r *userRepository) UpdateUser(ctx context.Context, userID int64, updateData entities.User) (*entities.User, error) {
+	query := `
+		UPDATE users 
+		SET name = $2, furigana = $3, email = $4, avatar_url = $5, role = $6, 
+			school_id = $7, class_id = $8, student_number = $9, grade = $10, 
+			ui_preferences = $11, is_approved = $12, updated_at = NOW()
+		WHERE id = $1 AND is_active = true
+		RETURNING id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
+				  student_number, grade, is_active, is_approved, ui_preferences, 
+				  last_login_at, created_at, updated_at
+	`
+
+	var user entities.User
+	err := r.db.QueryRowContext(ctx, query,
+		userID,
+		updateData.Name,
+		updateData.Furigana,
+		updateData.Email,
+		updateData.AvatarURL,
+		updateData.Role,
+		updateData.SchoolID,
+		updateData.ClassID,
+		updateData.StudentNumber,
+		updateData.Grade,
+		updateData.UIPreferences,
+		updateData.IsApproved,
+	).Scan(
+		&user.ID,
+		&user.FirebaseUID,
+		&user.Name,
+		&user.Furigana,
+		&user.Email,
+		&user.AvatarURL,
+		&user.Role,
+		&user.SchoolID,
+		&user.ClassID,
+		&user.StudentNumber,
+		&user.Grade,
+		&user.IsActive,
+		&user.IsApproved,
+		&user.UIPreferences,
+		&user.LastLoginAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found for update: %d", userID)
+		}
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return &user, nil
 }

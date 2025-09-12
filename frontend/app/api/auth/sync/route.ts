@@ -1,57 +1,43 @@
-import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
 
-// PostgreSQL接続設定（環境変数から取得）
-const getDbConnection = () => {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    throw new Error('DATABASE_URL environment variable is not set');
-  }
-  return dbUrl;
-};
-
-// ユーザー情報をPostgreSQLに同期
+// ユーザー情報をバックエンドAPIに送信して同期
 export async function POST(request: NextRequest) {
   try {
-    // Auth0セッションからユーザー情報を取得
-    const session = await getSession(request, NextResponse.next());
-    
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    const body = await request.json();
+    const { firebaseUid, email, displayName, schoolId, role } = body;
+
+    if (!firebaseUid || !email) {
+      return NextResponse.json({ error: 'Firebase UID and email are required' }, { status: 400 });
     }
 
-    const { user } = session;
-    
-    // デフォルトスクールID（実際の実装では適切な値を設定）
-    const defaultSchoolId = 1;
-    
-    // PostgreSQL接続（実際の実装ではpg packageを使用）
-    const userdata = {
-      uid: user.sub,
-      name: user.name,
-      email: user.email,
-      avatar_url: user.picture,
-      role: 'student', // デフォルトロール
-      school_id: defaultSchoolId,
-      is_active: true,
-      is_approved: false, // 管理者承認待ち
-      last_login_at: new Date().toISOString()
-    };
-
-    // 実際のPostgreSQL挿入処理（仮実装）
-    console.log('Would sync user to PostgreSQL:', userdata);
-    
-    // 一旦成功レスポンスを返す（実際のDB処理は後で実装）
-    return NextResponse.json({ 
-      success: true, 
-      user: userdata,
-      message: 'User sync completed'
+    // バックエンドの認証同期APIを呼び出し
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    const response = await fetch(`${backendUrl}/api/v1/auth/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firebase_uid: firebaseUid,
+        email,
+        display_name: displayName,
+        school_id: schoolId,
+        role
+      })
     });
-    
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return NextResponse.json({ error: errorData.error || 'Backend sync failed' }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+
   } catch (error) {
     console.error('User sync error:', error);
     return NextResponse.json(
-      { error: 'User sync failed', details: error },
+      { error: 'User sync failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
@@ -60,25 +46,29 @@ export async function POST(request: NextRequest) {
 // ユーザー情報を取得
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession(request, NextResponse.next());
-    
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    const url = new URL(request.url);
+    const firebaseUid = url.searchParams.get('uid');
+
+    if (!firebaseUid) {
+      return NextResponse.json({ error: 'Firebase UID is required' }, { status: 400 });
     }
 
-    // PostgreSQLからユーザー情報を取得（仮実装）
-    const userData = {
-      uid: session.user.sub,
-      name: session.user.name,
-      email: session.user.email,
-      avatar_url: session.user.picture,
-      role: 'student',
-      school_id: 1,
-      is_approved: true // 実際はDBから取得
-    };
+    // バックエンドAPIからユーザー情報を取得
+    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    const response = await fetch(`${backendUrl}/api/v1/auth/sync?uid=${firebaseUid}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-    return NextResponse.json({ user: userData });
-    
+    if (!response.ok) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+
   } catch (error) {
     console.error('Get user error:', error);
     return NextResponse.json(

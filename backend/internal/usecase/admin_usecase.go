@@ -23,7 +23,7 @@ func NewAdminUsecase(adminRepo repositories.AdminRepository, userRepo repositori
 	}
 }
 
-func (u *AdminUsecase) GetAllUsers(ctx context.Context, page, perPage int, schoolID *int64, requesterRole string, requesterSchoolID int64) (*entities.UserListResponse, error) {
+func (u *AdminUsecase) GetAllUsers(ctx context.Context, page, perPage int, schoolID *string, requesterRole string, requesterSchoolID string) (*entities.UserListResponse, error) {
 	// 権限チェック
 	if !u.canManageUsers(requesterRole, schoolID, requesterSchoolID) {
 		return nil, fmt.Errorf("insufficient permissions to manage users")
@@ -47,7 +47,7 @@ func (u *AdminUsecase) GetAllUsers(ctx context.Context, page, perPage int, schoo
 	}, nil
 }
 
-func (u *AdminUsecase) UpdateUserRole(ctx context.Context, req *entities.UpdateUserRoleRequest, requesterRole string, requesterSchoolID int64) error {
+func (u *AdminUsecase) UpdateUserRole(ctx context.Context, req *entities.UpdateUserRoleRequest, requesterRole string, requesterSchoolID string) error {
 	// 権限チェック
 	if !u.canManageUsers(requesterRole, req.SchoolID, requesterSchoolID) {
 		return fmt.Errorf("insufficient permissions to update user role")
@@ -60,7 +60,7 @@ func (u *AdminUsecase) UpdateUserRole(ctx context.Context, req *entities.UpdateU
 	}
 
 	// school_adminは自分の学校のユーザーのみ変更可能
-	if requesterRole == "school_admin" && targetUser.SchoolID != requesterSchoolID {
+	if requesterRole == "school_admin" && (targetUser.SchoolID == nil || *targetUser.SchoolID != requesterSchoolID) {
 		return fmt.Errorf("cannot modify users from other schools")
 	}
 
@@ -84,7 +84,7 @@ func (u *AdminUsecase) UpdateUserRole(ctx context.Context, req *entities.UpdateU
 	return u.adminRepo.UpdateUserRole(ctx, req.UserID, req.Role, schoolIDToSet)
 }
 
-func (u *AdminUsecase) UpdateUserStatus(ctx context.Context, userID int64, isActive, isApproved bool, requesterRole string, requesterSchoolID int64) error {
+func (u *AdminUsecase) UpdateUserStatus(ctx context.Context, userID string, isActive, isApproved bool, requesterRole string, requesterSchoolID string) error {
 	// 対象ユーザーを取得
 	targetUser, err := u.adminRepo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -92,7 +92,7 @@ func (u *AdminUsecase) UpdateUserStatus(ctx context.Context, userID int64, isAct
 	}
 
 	// school_adminは自分の学校のユーザーのみ変更可能
-	if requesterRole == "school_admin" && targetUser.SchoolID != requesterSchoolID {
+	if requesterRole == "school_admin" && (targetUser.SchoolID == nil || *targetUser.SchoolID != requesterSchoolID) {
 		return fmt.Errorf("cannot modify users from other schools")
 	}
 
@@ -113,7 +113,7 @@ func (u *AdminUsecase) GetAllSchools(ctx context.Context, requesterRole string) 
 	return u.adminRepo.GetAllSchools(ctx)
 }
 
-func (u *AdminUsecase) GetUserStatsByRole(ctx context.Context, schoolID *int64, requesterRole string, requesterSchoolID int64) (map[string]int, error) {
+func (u *AdminUsecase) GetUserStatsByRole(ctx context.Context, schoolID *string, requesterRole string, requesterSchoolID string) (map[string]int, error) {
 	// school_adminの場合は自分の学校の統計のみ
 	if requesterRole == "school_admin" {
 		schoolID = &requesterSchoolID
@@ -125,7 +125,7 @@ func (u *AdminUsecase) GetUserStatsByRole(ctx context.Context, schoolID *int64, 
 }
 
 // 権限チェックヘルパー
-func (u *AdminUsecase) canManageUsers(requesterRole string, targetSchoolID *int64, requesterSchoolID int64) bool {
+func (u *AdminUsecase) canManageUsers(requesterRole string, targetSchoolID *string, requesterSchoolID string) bool {
 	switch requesterRole {
 	case "admin":
 		return true // adminは全てのユーザーを管理可能
@@ -138,7 +138,7 @@ func (u *AdminUsecase) canManageUsers(requesterRole string, targetSchoolID *int6
 }
 
 // InviteUser ユーザー招待
-func (u *AdminUsecase) InviteUser(ctx context.Context, name, email, role string, schoolID int64, message, requesterRole string, requesterSchoolID int64) error {
+func (u *AdminUsecase) InviteUser(ctx context.Context, name, email, role string, schoolID string, message, requesterRole string, requesterSchoolID string) error {
 	// 権限チェック
 	if !u.canManageUsers(requesterRole, &schoolID, requesterSchoolID) {
 		return fmt.Errorf("insufficient permissions to invite users")

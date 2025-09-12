@@ -17,9 +17,84 @@ export interface AuthUser {
   displayName: string | null;
   photoURL: string | null;
   emailVerified: boolean;
+  schoolId?: string;
+  role?: 'user' | 'admin';
 }
 
-// ログイン
+// 3要素認証用のログイン（一般ユーザー）
+export const signInWithSchoolId = async (email: string, password: string, schoolId: string): Promise<UserCredential> => {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
+  }
+  
+  // まずFirebase認証でメール・パスワードを確認
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  
+  // APIで学校IDを確認
+  try {
+    const response = await fetch('/api/users/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firebaseUid: userCredential.user.uid,
+        schoolId,
+        adminOnly: false,
+      }),
+    });
+
+    if (!response.ok) {
+      await signOut(auth);
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'ユーザー認証に失敗しました');
+    }
+  } catch (error) {
+    await signOut(auth);
+    throw error;
+  }
+  
+  return userCredential;
+};
+
+// Admin用のログイン（メール・パスワードのみ）
+export const signInAdmin = async (email: string, password: string): Promise<UserCredential> => {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
+  }
+  
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  
+  // APIでAdmin権限を確認
+  try {
+    const response = await fetch('/api/users/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firebaseUid: userCredential.user.uid,
+        adminOnly: true,
+      }),
+    });
+
+    if (!response.ok) {
+      await signOut(auth);
+      const errorData = await response.json();
+      throw new Error(errorData.error || '管理者認証に失敗しました');
+    }
+    
+    // 管理者権限を確認できた場合、localStorageに保存
+    localStorage.setItem(`user_role_${userCredential.user.uid}`, 'admin');
+  } catch (error) {
+    await signOut(auth);
+    throw error;
+  }
+  
+  return userCredential;
+};
+
+// 従来のログイン関数（後方互換性のため残す）
 export const signIn = async (email: string, password: string): Promise<UserCredential> => {
   if (!auth) {
     throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
@@ -27,15 +102,83 @@ export const signIn = async (email: string, password: string): Promise<UserCrede
   return await signInWithEmailAndPassword(auth, email, password);
 };
 
-// 新規登録
-export const signUp = async (email: string, password: string, displayName?: string): Promise<UserCredential> => {
+// 一般ユーザー新規登録（学校IDを含む）
+export const signUp = async (email: string, password: string, schoolId: string, displayName?: string): Promise<UserCredential> => {
   if (!auth) {
     throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
   }
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   
-  if (displayName && userCredential.user) {
-    await updateProfile(userCredential.user, { displayName });
+  if (userCredential.user) {
+    // プロフィール更新
+    if (displayName) {
+      await updateProfile(userCredential.user, { displayName });
+    }
+    
+    // APIでユーザー情報を保存
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          displayName: displayName || '',
+          schoolId,
+          role: 'user',
+          firebaseUid: userCredential.user.uid,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('ユーザー情報の保存に失敗しました');
+      }
+    } catch (dbError) {
+      // APIへの保存に失敗した場合、Firebaseユーザーを削除
+      await userCredential.user.delete();
+      throw new Error('ユーザー情報の保存に失敗しました');
+    }
+  }
+  
+  return userCredential;
+};
+
+// Admin新規登録
+export const signUpAdmin = async (email: string, password: string, displayName?: string): Promise<UserCredential> => {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
+  }
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  
+  if (userCredential.user) {
+    if (displayName) {
+      await updateProfile(userCredential.user, { displayName });
+    }
+    
+    // APIでAdmin情報を保存
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          displayName: displayName || '',
+          role: 'admin',
+          firebaseUid: userCredential.user.uid,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('管理者情報の保存に失敗しました');
+      }
+    } catch (dbError) {
+      // APIへの保存に失敗した場合、Firebaseユーザーを削除
+      await userCredential.user.delete();
+      throw new Error('管理者情報の保存に失敗しました');
+    }
   }
   
   return userCredential;
@@ -46,6 +189,26 @@ export const logout = async (): Promise<void> => {
   if (!auth) {
     throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
   }
+  
+  // ログアウト前に現在のユーザーの権限情報を保持
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      // APIから最新のユーザー情報を取得して権限を確認
+      const response = await fetch(`/api/users/${currentUser.uid}`);
+      if (response.ok) {
+        const { user: userData } = await response.json();
+        if (userData?.role === 'admin') {
+          // 管理者権限をlocalStorageに保存
+          localStorage.setItem(`user_role_${currentUser.uid}`, 'admin');
+        }
+      }
+    } catch (error) {
+      // APIエラーは無視してログアウトを継続
+      console.warn('Failed to save user role before logout:', error);
+    }
+  }
+  
   await signOut(auth);
 };
 
@@ -64,16 +227,51 @@ export const onAuthStateChange = (callback: (user: AuthUser | null) => void) => 
     callback(null);
     return () => {}; // 空のunsubscribe関数を返す
   }
-  return onAuthStateChanged(auth, (user: User | null) => {
+  return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      const authUser: AuthUser = {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        emailVerified: user.emailVerified,
-      };
-      callback(authUser);
+      try {
+        // APIからユーザー情報を取得
+        const response = await fetch(`/api/users/${user.uid}`);
+        
+        if (response.ok) {
+          const { user: userData } = await response.json();
+          // admin権限を明示的に保持
+          const authUser: AuthUser = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || userData?.display_name,
+            photoURL: user.photoURL,
+            emailVerified: user.emailVerified,
+            schoolId: userData?.school_id,
+            role: userData?.role === 'admin' ? 'admin' : userData?.role || 'user',
+          };
+          callback(authUser);
+        } else {
+          // APIからユーザー情報を取得できない場合は、localStorageから権限情報を復元を試行
+          const savedRole = localStorage.getItem(`user_role_${user.uid}`);
+          const authUser: AuthUser = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            emailVerified: user.emailVerified,
+            role: savedRole === 'admin' ? 'admin' : 'user',
+          };
+          callback(authUser);
+        }
+      } catch (error) {
+        // APIエラーの場合は、localStorageから権限情報を復元を試行
+        const savedRole = localStorage.getItem(`user_role_${user.uid}`);
+        const authUser: AuthUser = {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          emailVerified: user.emailVerified,
+          role: savedRole === 'admin' ? 'admin' : 'user',
+        };
+        callback(authUser);
+      }
     } else {
       callback(null);
     }

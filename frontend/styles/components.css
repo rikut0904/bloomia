@@ -1,0 +1,247 @@
+/* Bloomia コンポーネントスタイル */
+
+/* ボタンスタイル */
+.btn {
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: white;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  box-shadow: 0 6px 16px var(--shadow);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--secondary), var(--secondary-light));
+  color: white;
+  box-shadow: 0 4px 12px rgba(32, 178, 170, 0.2);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+
+.btn-outline:hover {
+  background: var(--primary);
+  color: white;
+}
+
+/* カードスタイル */
+.card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(255, 127, 80, 0.1);
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 24px rgba(255, 127, 80, 0.15);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.card-description {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* ダッシュボードタイル */
+.dashboard-tile {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: white;
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.dashboard-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(255, 127, 80, 0.25);
+}
+
+.dashboard-tile-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.dashboard-tile-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.dashboard-tile-description {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+/* フォームスタイル */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 127, 80, 0.1);
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+}
+
+/* テーブルスタイル */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--muted);
+}
+
+.table tr:hover {
+  background: rgba(255, 127, 80, 0.05);
+}
+
+/* バッジスタイル */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.badge-default {
+  background: var(--primary);
+  color: white;
+}
+
+.badge-secondary {
+  background: var(--secondary);
+  color: white;
+}
+
+.badge-success {
+  background: var(--success);
+  color: white;
+}
+
+.badge-warning {
+  background: var(--warning);
+  color: white;
+}
+
+.badge-error {
+  background: var(--error);
+  color: white;
+}
+
+/* ローディングスピナー */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border);
+  border-top: 3px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* レスポンシブヘルパー */
+@media (max-width: 768px) {
+  .dashboard-tile {
+    padding: 24px 16px;
+    min-height: 120px;
+  }
+  
+  .card {
+    padding: 16px;
+  }
+  
+  .btn {
+    padding: 10px 20px;
+    font-size: 0.875rem;
+  }
+}

@@ -18,6 +18,7 @@ import (
 	adminRepo "github.com/rikut0904/bloomia/backend/internal/infrastructure/repository/admin"
 	dashboardRepo "github.com/rikut0904/bloomia/backend/internal/infrastructure/repository/dashboard"
 	redisRepo "github.com/rikut0904/bloomia/backend/internal/infrastructure/repository/redis"
+	schoolRepo "github.com/rikut0904/bloomia/backend/internal/infrastructure/repository/school"
 	userRepo "github.com/rikut0904/bloomia/backend/internal/infrastructure/repository/user"
 	httpHandler "github.com/rikut0904/bloomia/backend/internal/interface/http"
 	"github.com/rikut0904/bloomia/backend/internal/usecase"
@@ -52,25 +53,28 @@ func NewApp(cfg *config.Config) (*App, error) {
 
 	// リポジトリ初期化
 	userRepository := userRepo.NewUserRepository(db)
+	schoolRepository := schoolRepo.NewSchoolRepository(db)
 	_ = redisRepo.NewRedisRepository(redisClient) // 将来使用予定
 	dashboardRepository := dashboardRepo.NewDashboardRepository(db)
 	adminRepository := adminRepo.NewAdminRepository(db)
 
 	// ユースケース初期化
 	authUsecase := usecase.NewAuthUsecase(userRepository, adminRepository)
+	schoolUsecase := usecase.NewSchoolUsecase(schoolRepository, userRepository, cfg)
 	dashboardUsecase := usecase.NewDashboardUsecase(userRepository, cfg)
 	dashboardUsecase.SetDashboardRepository(dashboardRepository)
 	adminUsecase := usecase.NewAdminUsecase(adminRepository, userRepository, cfg)
 
 	// ハンドラー初期化
-	authHandler := httpHandler.NewAuthHandler(authUsecase)
+	authHandler := httpHandler.NewAuthHandler(authUsecase, cfg)
+	schoolHandler := httpHandler.NewSchoolHandler(schoolUsecase, cfg)
 	dashboardHandler := httpHandler.NewDashboardHandler(dashboardUsecase)
-	adminHandler := httpHandler.NewAdminHandler(adminUsecase)
+	adminHandler := httpHandler.NewAdminHandler(adminUsecase, cfg)
 
 	// ルーター設定
 	router := chi.NewRouter()
 	setupMiddleware(router, cfg)
-	setupRoutes(router, authHandler, dashboardHandler, adminHandler, firebaseClient, cfg)
+	setupRoutes(router, authHandler, schoolHandler, dashboardHandler, adminHandler, firebaseClient, cfg)
 
 	return &App{
 		router: router,
@@ -108,7 +112,7 @@ func setupMiddleware(r *chi.Mux, cfg *config.Config) {
 	})
 }
 
-func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, dashboardHandler *httpHandler.DashboardHandler, adminHandler *httpHandler.AdminHandler, firebaseClient *firebase.FirebaseClient, cfg *config.Config) {
+func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, schoolHandler *httpHandler.SchoolHandler, dashboardHandler *httpHandler.DashboardHandler, adminHandler *httpHandler.AdminHandler, firebaseClient *firebase.FirebaseClient, cfg *config.Config) {
 	// Firebase認証ミドルウェア（FirebaseClientが設定されている場合のみ）
 	var firebaseAuthMiddleware func(http.Handler) http.Handler
 	if firebaseClient != nil {
@@ -119,6 +123,7 @@ func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, dashboardHand
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証関連
 		r.Post("/auth/register", authHandler.RegisterUser)
+		r.HandleFunc("/auth/sync", authHandler.SyncUser) // POST/GET両方対応
 		
 		// 認証が必要なルート
 		r.Group(func(r chi.Router) {
@@ -130,14 +135,31 @@ func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, dashboardHand
 			r.Get("/dashboard", dashboardHandler.GetDashboard)
 			r.Get("/dashboard/tasks", dashboardHandler.GetTasks)
 			r.Get("/dashboard/stats", dashboardHandler.GetStats)
+		})
+		
+		// 管理者機能（環境変数で認証を制御）
+		r.Group(func(r chi.Router) {
+			// 本番環境では認証を有効にする
+			if !cfg.DisableAuth && firebaseAuthMiddleware != nil {
+				r.Use(firebaseAuthMiddleware)
+			}
 			
-			        // 管理者機能
-        r.Get("/admin/users", adminHandler.GetAllUsers)
-        r.Put("/admin/users/role", adminHandler.UpdateUserRole)
-        r.Put("/admin/users/status", adminHandler.UpdateUserStatus)
-        r.Post("/admin/invite", adminHandler.InviteUser)
-        r.Get("/admin/schools", adminHandler.GetAllSchools)
-        r.Get("/admin/stats", adminHandler.GetUserStats)
+			// ユーザー管理
+			r.Get("/admin/users", adminHandler.GetAllUsers)
+			r.Put("/admin/users/role", adminHandler.UpdateUserRole)
+			r.Put("/admin/users/status", adminHandler.UpdateUserStatus)
+			r.Post("/admin/invite", adminHandler.InviteUser)
+			r.Get("/admin/schools", adminHandler.GetAllSchools)
+			r.Get("/admin/stats", adminHandler.GetUserStats)
+			
+			// 学校管理
+			r.Post("/schools", schoolHandler.CreateSchool)
+			r.Get("/schools", schoolHandler.GetAllSchools)
+			r.Get("/schools/{id}", schoolHandler.GetSchool)
+			r.Put("/schools/{id}", schoolHandler.UpdateSchool)
+			r.Delete("/schools/{id}", schoolHandler.DeleteSchool)
+			r.Get("/schools/{id}/stats", schoolHandler.GetSchoolStats)
+			r.Get("/schools/{id}/users", schoolHandler.GetSchoolUsers)
 		})
 	})
 }

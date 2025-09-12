@@ -1,6 +1,5 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "demo-api-key",
@@ -11,31 +10,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:123456789:web:demo",
 };
 
-// Firebase初期化
+// Firebase Authentication初期化
 let app: any = null;
 let auth: any = null;
-let db: any = null;
 
 try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
 
-  // 開発環境でエミュレーターを使用（オプション）
+  // 開発環境でAuth エミュレーターを使用（オプション）
   if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
     // Auth エミュレーター（実際のFirebaseを使用する場合はコメントアウト）
     // if (!auth.emulatorConfig) {
     //   connectAuthEmulator(auth, 'http://localhost:9099');
     // }
-    
-    // Firestore エミュレーター（実際のFirebaseを使用する場合はコメントアウト）
-    // if (!db._delegate._databaseId.projectId.includes('demo-')) {
-    //   connectFirestoreEmulator(db, 'localhost', 8080);
-    // }
   }
 } catch (error) {
-  console.warn('Firebase initialization failed:', error);
+  console.warn('Firebase Authentication initialization failed:', error);
 }
 
-export { auth, db };
+export { auth };
 export default app;

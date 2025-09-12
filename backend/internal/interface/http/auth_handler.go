@@ -3,92 +3,73 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
+	"github.com/rikut0904/bloomia/backend/internal/infrastructure/config"
 	"github.com/rikut0904/bloomia/backend/internal/usecase"
 )
 
 type AuthHandler struct {
+	*BaseHandler
 	authUsecase *usecase.AuthUsecase
 }
 
-func NewAuthHandler(authUsecase *usecase.AuthUsecase) *AuthHandler {
+func NewAuthHandler(authUsecase *usecase.AuthUsecase, cfg *config.Config) *AuthHandler {
 	return &AuthHandler{
+		BaseHandler: NewBaseHandler(cfg),
 		authUsecase: authUsecase,
 	}
 }
 
 // CreateInvitation ユーザー招待を作成
 func (h *AuthHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	h.HandleWithValidation(w, r, http.MethodPost,
+		func(w http.ResponseWriter, r *http.Request) bool {
+			var req InviteUserRequest
+			return h.ParseJSONAndValidate(w, r, &req, ValidateInviteUserRequest)
+		},
+		func(w http.ResponseWriter, r *http.Request, authCtx AuthContext) error {
+			var req InviteUserRequest
+			parseJSONRequest(w, r, &req)
 
-	var req struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Role     string `json:"role"`
-		SchoolID int64  `json:"school_id"`
-		Message  string `json:"message"`
-	}
+			invitation, err := h.authUsecase.CreateInvitation(
+				r.Context(),
+				req.Name,
+				req.Email,
+				req.Role,
+				req.SchoolID,
+				req.Message,
+			)
+			if err != nil {
+				return err
+			}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErrorResponse(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// バリデーション
-	if req.Name == "" || req.Email == "" || req.Role == "" || req.SchoolID == 0 {
-		writeErrorResponse(w, "Missing required fields", http.StatusBadRequest)
-		return
-	}
-
-	// 招待作成
-	invitation, err := h.authUsecase.CreateInvitation(
-		r.Context(),
-		req.Name,
-		req.Email,
-		req.Role,
-		req.SchoolID,
-		req.Message,
+			h.SendJSONResponse(w, map[string]interface{}{
+				"invitation": invitation,
+				"message":    "Invitation created successfully",
+			}, http.StatusCreated)
+			return nil
+		},
 	)
-	if err != nil {
-		writeErrorResponse(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"invitation": invitation,
-		"message":    "Invitation created successfully",
-	})
 }
 
 // ValidateInvitation 招待トークンを検証
 func (h *AuthHandler) ValidateInvitation(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	h.HandleWithAuth(w, r, http.MethodGet, func(w http.ResponseWriter, r *http.Request, authCtx AuthContext) error {
+		token := r.URL.Query().Get("token")
+		if token == "" {
+			h.SendErrorResponse(w, "Token is required", http.StatusBadRequest)
+			return nil
+		}
 
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		writeErrorResponse(w, "Token is required", http.StatusBadRequest)
-		return
-	}
+		invitation, err := h.authUsecase.ValidateInvitation(r.Context(), token)
+		if err != nil {
+			return err
+		}
 
-	invitation, err := h.authUsecase.ValidateInvitation(r.Context(), token)
-	if err != nil {
-		writeErrorResponse(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"invitation": invitation,
+		h.SendJSONResponse(w, map[string]interface{}{
+			"invitation": invitation,
+		}, http.StatusOK)
+		return nil
 	})
 }
 
@@ -179,12 +160,76 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func writeErrorResponse(w http.ResponseWriter, message string, statusCode int) {
+// SyncUser Firebase認証とデータベースの同期
+func (h *AuthHandler) SyncUser(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		h.syncUserCreate(w, r)
+	case http.MethodGet:
+		h.syncUserGet(w, r)
+	default:
+		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *AuthHandler) syncUserCreate(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		FirebaseUID string  `json:"firebase_uid"`
+		Email       string  `json:"email"`
+		DisplayName *string `json:"display_name"`
+		SchoolID    *string `json:"school_id"`
+		Role        *string `json:"role"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.FirebaseUID == "" || req.Email == "" {
+		writeErrorResponse(w, "Firebase UID and email are required", http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.authUsecase.SyncUser(
+		r.Context(),
+		req.FirebaseUID,
+		req.Email,
+		req.DisplayName,
+		req.SchoolID,
+		req.Role,
+	)
+	if err != nil {
+		writeErrorResponse(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":   message,
-		"status":  statusCode,
-		"timestamp": time.Now(),
+		"success": true,
+		"user":    user,
+		"message": "User synchronized successfully",
 	})
 }
+
+func (h *AuthHandler) syncUserGet(w http.ResponseWriter, r *http.Request) {
+	firebaseUID := r.URL.Query().Get("uid")
+	if firebaseUID == "" {
+		writeErrorResponse(w, "Firebase UID is required", http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.authUsecase.GetUserByFirebaseUID(r.Context(), firebaseUID)
+	if err != nil {
+		writeErrorResponse(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"user": user,
+	})
+}
+

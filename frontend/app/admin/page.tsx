@@ -1,180 +1,124 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { LoadingPage } from '@/components/common/LoadingSpinner';
+import { StatCard } from '@/components/admin/StatCard';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useAdminStats } from '@/hooks/useAdminStats';
+import { THEME_COLORS } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-interface UserStats {
-  admin: number;
-  school_admin: number;
-  teacher: number;
-  student: number;
-}
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { isLoading: authLoading, isAuthorized } = useAdminAuth();
+  const { stats, loading } = useAdminStats();
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  if (authLoading || loading) {
+    return <LoadingPage message="管理者ダッシュボードを読み込み中..." />;
+  }
 
-  const fetchStats = async () => {
-    try {
-      // TODO: 実際のAPIエンドポイントに接続
-      // const response = await fetch('/api/v1/admin/stats');
-      // const data = await response.json();
-      // setStats(data.stats);
-
-      // モックデータ
-      setStats({
-        admin: 2,
-        school_admin: 5,
-        teacher: 120,
-        student: 2400,
-      });
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{borderColor: '#FF7F50'}}></div>
-      </div>
-    );
+  if (!isAuthorized) {
+    return null; // useAdminAuthがリダイレクト処理を行う
   }
 
   return (
     <div className="px-4 py-6 sm:px-0">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold" style={{ color: '#2F1B14' }}>
+        <h1 className="text-3xl font-bold" style={{ color: THEME_COLORS.primaryDark }}>
           管理者ダッシュボード
         </h1>
-        <p className="mt-2 text-lg" style={{ color: '#8B4513' }}>
+        <p className="mt-2 text-lg" style={{ color: THEME_COLORS.secondary }}>
           システム全体の統計情報とユーザー管理
         </p>
       </div>
 
       {/* 統計カード */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-        <Card className="bg-white shadow-sm" style={{ borderColor: '#DEB887' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: '#8B4513' }}>
-              システム管理者
-            </CardTitle>
-            <div className="text-2xl">👑</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: '#2F1B14' }}>
-              {stats?.admin || 0}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow-sm" style={{ borderColor: '#DEB887' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: '#8B4513' }}>
-              学校管理者
-            </CardTitle>
-            <div className="text-2xl">🏫</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: '#2F1B14' }}>
-              {stats?.school_admin || 0}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow-sm" style={{ borderColor: '#DEB887' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: '#8B4513' }}>
-              教員
-            </CardTitle>
-            <div className="text-2xl">👩‍🏫</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: '#2F1B14' }}>
-              {stats?.teacher || 0}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow-sm" style={{ borderColor: '#DEB887' }}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium" style={{ color: '#8B4513' }}>
-              生徒
-            </CardTitle>
-            <div className="text-2xl">👨‍🎓</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" style={{ color: '#2F1B14' }}>
-              {stats?.student || 0}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard title="総ユーザー数" value={stats?.total_users || 0} />
+        <StatCard title="システム管理者" value={stats?.admin || 0} />
+        <StatCard title="学校管理者" value={stats?.school_admin || 0} />
+        <StatCard title="教員数" value={stats?.teacher || 0} />
+        <StatCard title="生徒数" value={stats?.student || 0} />
+        <StatCard title="総学校数" value={stats?.total_schools || 0} />
+        <StatCard title="アクティブ学校" value={stats?.active_schools || 0} />
+        <StatCard title="総学生数" value={stats?.total_students || 0} />
       </div>
 
       {/* 管理機能へのクイックリンク */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer" 
-              style={{ borderColor: '#DEB887' }}>
+        <Card style={{ borderColor: THEME_COLORS.border }}>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <span className="text-xl">👥</span>
-              <span style={{ color: '#2F1B14' }}>ユーザー管理</span>
-            </CardTitle>
-            <CardDescription style={{ color: '#8B4513' }}>
-              ユーザーの役割変更・権限管理・承認状況の管理
-            </CardDescription>
+            <CardTitle style={{ color: THEME_COLORS.primaryDark }}>ユーザー管理</CardTitle>
+            <CardDescription>システム内のユーザーの管理と権限設定</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <a href="/admin/users" className="text-sm font-medium block" style={{ color: '#FF7F50' }}>
-                ユーザー一覧を見る →
-              </a>
-              <a href="/admin/invite" className="text-sm font-medium block" style={{ color: '#FF7F50' }}>
-                新しいユーザーを招待 →
-              </a>
+              <Button 
+                onClick={() => router.push('/admin/users')}
+                className="w-full justify-start"
+                variant="ghost"
+              >
+                ユーザー一覧
+              </Button>
+              <Button 
+                onClick={() => router.push('/admin/users/create')}
+                className="w-full justify-start"
+                variant="ghost"
+              >
+                新規ユーザー作成
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              style={{ borderColor: '#DEB887' }}>
+        <Card style={{ borderColor: THEME_COLORS.border }}>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <span className="text-xl">🏫</span>
-              <span style={{ color: '#2F1B14' }}>学校管理</span>
-            </CardTitle>
-            <CardDescription style={{ color: '#8B4513' }}>
-              学校情報の管理・設定・新規学校の追加
-            </CardDescription>
+            <CardTitle style={{ color: THEME_COLORS.primaryDark }}>学校管理</CardTitle>
+            <CardDescription>学校情報の管理と設定</CardDescription>
           </CardHeader>
           <CardContent>
-            <a href="/admin/schools" className="text-sm font-medium" style={{ color: '#FF7F50' }}>
-              学校一覧を見る →
-            </a>
+            <div className="space-y-2">
+              <Button 
+                onClick={() => router.push('/admin/schools')}
+                className="w-full justify-start"
+                variant="ghost"
+              >
+                学校一覧
+              </Button>
+              <Button 
+                onClick={() => router.push('/admin/schools/create')}
+                className="w-full justify-start"
+                variant="ghost"
+              >
+                新規学校登録
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              style={{ borderColor: '#DEB887' }}>
+        <Card style={{ borderColor: THEME_COLORS.border }}>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <span className="text-xl">📊</span>
-              <span style={{ color: '#2F1B14' }}>システム統計</span>
-            </CardTitle>
-            <CardDescription style={{ color: '#8B4513' }}>
-              利用状況・パフォーマンス・エラー統計の確認
-            </CardDescription>
+            <CardTitle style={{ color: THEME_COLORS.primaryDark }}>システム統計</CardTitle>
+            <CardDescription>詳細な統計情報と分析</CardDescription>
           </CardHeader>
           <CardContent>
-            <span className="text-sm font-medium" style={{ color: '#8B4513' }}>
-              近日実装予定
-            </span>
+            <div className="space-y-2">
+              <Button 
+                onClick={() => router.push('/admin/stats')}
+                className="w-full justify-start"
+                variant="ghost"
+              >
+                詳細統計
+              </Button>
+              <Button 
+                onClick={() => router.push('/admin/reports')}
+                className="w-full justify-start"
+                variant="ghost"
+              >
+                レポート
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

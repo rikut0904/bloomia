@@ -13,9 +13,10 @@ import { useAuth } from "@/contexts/AuthContext"
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [schoolId, setSchoolId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn } = useAuth();
+  const { signInWithSchoolId } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,7 +25,11 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await signIn(email, password);
+      if (!schoolId.trim()) {
+        setError('学校IDを入力してください');
+        return;
+      }
+      await signInWithSchoolId(email, password, schoolId);
       router.push('/home');
     } catch (error: any) {
       setError(error.message || 'ログインに失敗しました');
@@ -54,6 +59,17 @@ export default function LoginPage() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
+              <div>
+                <Label htmlFor="schoolId">学校ID</Label>
+                <Input
+                  id="schoolId"
+                  type="text"
+                  value={schoolId}
+                  onChange={(e) => setSchoolId(e.target.value)}
+                  placeholder="例: school001"
+                  required
+                />
+              </div>
 
               <div>
                 <Label htmlFor="email">メールアドレス</Label>
@@ -84,7 +100,7 @@ export default function LoginPage() {
                 disabled={loading}
                 style={{ backgroundColor: '#FF7F50', color: 'white' }}
               >
-                {loading ? 'ログイン中...' : 'ログイン'}
+{loading ? 'ログイン中...' : 'ログイン'}
               </Button>
             </form>
 
