@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+server
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+testdata/
+
+# Coverage files
+*.out
+coverage.html
+
+# Temporary files
+tmp/
+temp/
+
+# Node modules (if any)
+node_modules/
+
+# Logs
+*.log
+
+# Development scripts
+scripts/dev-*
+scripts/*dev*
+
+# Migration test files
+migrations/test_*
+
+# Local development database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker files (except the main one)
+Dockerfile.*
+!Dockerfile
+
+# CI/CD files (not needed in container)
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Vendor directory (if using vendor)
+vendor/
