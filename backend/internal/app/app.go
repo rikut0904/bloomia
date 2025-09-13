@@ -124,6 +124,7 @@ func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, schoolHandler
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証関連
 		r.Post("/auth/register", authHandler.RegisterUser)
+		r.Post("/auth/verify", authHandler.VerifyUser)
 		r.HandleFunc("/auth/sync", authHandler.SyncUser) // POST/GET両方対応
 		
 		// 認証が必要なルート

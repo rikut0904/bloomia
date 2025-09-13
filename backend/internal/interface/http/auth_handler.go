@@ -160,6 +160,77 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// VerifyUser Firebase UIDと管理者権限を検証
+func (h *AuthHandler) VerifyUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		FirebaseUID string  `json:"firebaseUid"`
+		SchoolID    *string `json:"schoolId"`
+		AdminOnly   bool    `json:"adminOnly"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.FirebaseUID == "" {
+		writeErrorResponse(w, "Firebase UID is required", http.StatusBadRequest)
+		return
+	}
+
+	// 開発環境では認証をバイパス
+	if h.config.DisableAuth {
+		dummyUser := map[string]interface{}{
+			"uid":        req.FirebaseUID,
+			"email":      "admin@example.com",
+			"display_name": "Admin User",
+			"role":       "admin",
+			"school_id":  "school1",
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"user":    dummyUser,
+			"message": "User verified successfully (development mode)",
+		})
+		return
+	}
+
+	// ユーザー情報を取得
+	user, err := h.authUsecase.GetUserByFirebaseUID(r.Context(), req.FirebaseUID)
+	if err != nil {
+		writeErrorResponse(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	// 管理者権限チェック
+	if req.AdminOnly && user.Role != "admin" {
+		writeErrorResponse(w, "Admin access required", http.StatusForbidden)
+		return
+	}
+
+	// 学校IDチェック（一般ユーザーの場合）
+	if !req.AdminOnly && req.SchoolID != nil && user.SchoolID != *req.SchoolID {
+		writeErrorResponse(w, "School ID mismatch", http.StatusForbidden)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"user":    user,
+		"message": "User verified successfully",
+	})
+}
+
 // SyncUser Firebase認証とデータベースの同期
 func (h *AuthHandler) SyncUser(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {

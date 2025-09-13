@@ -571,9 +571,9 @@ FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
 
 # アプリケーション
-API_BASE_URL=http://localhost:8080|https://api.bloomia.com
-FRONTEND_URL=http://localhost:3000|https://bloomia.com
-WEBSOCKET_URL=ws://localhost:8080/ws|wss://api.bloomia.com/ws
+API_BASE_URL=http://localhost:8080
+FRONTEND_URL=http://localhost:3000
+WEBSOCKET_URL=ws://localhost:8080/ws
 
 # Railway設定
 RAILWAY_STORAGE_PATH=/app/storage

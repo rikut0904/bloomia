@@ -4,7 +4,7 @@ export const API_CONFIG = {
     // NEXT_PUBLIC_API_URL を優先し、なければ NEXT_PUBLIC_API_BASE_URL を参照
     BASE_URL: (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL) ||
         (process.env.NODE_ENV === 'production'
-            ? 'https://api.bloomia.com'  // 本番環境のデフォルト
+            ? 'https://www.bloomia.com'  // 本番環境のデフォルト
             : 'http://localhost:8080'),  // 開発環境のデフォルト
 
     ENDPOINTS: {

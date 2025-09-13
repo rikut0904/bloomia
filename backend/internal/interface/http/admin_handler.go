@@ -138,6 +138,27 @@ func (h *AdminHandler) InviteUser(w http.ResponseWriter, r *http.Request) {
 
 // GetUserByID 管理者用：ユーザー詳細
 func (h *AdminHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+    // 開発環境では認証をバイパス
+    if h.config.DisableAuth {
+        userID := chi.URLParam(r, "id")
+        if userID == "" {
+            h.SendErrorResponse(w, "user id required", http.StatusBadRequest)
+            return
+        }
+
+        dummyUser := map[string]interface{}{
+            "uid":         userID,
+            "email":       "admin@example.com",
+            "display_name": "Admin User",
+            "role":        "admin",
+            "school_id":   "school1",
+            "status":      "active",
+        }
+        
+        h.SendJSONResponse(w, map[string]interface{}{"success": true, "user": dummyUser}, http.StatusOK)
+        return
+    }
+
     h.HandleWithAuth(w, r, http.MethodGet, func(w http.ResponseWriter, r *http.Request, authCtx AuthContext) error {
         userID := chi.URLParam(r, "id")
         if userID == "" {
