@@ -1,0 +1,35 @@
+# Migration Dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build migration binary
+RUN go build -o migrate cmd/migrate/main.go
+
+# Final stage
+FROM alpine:latest
+
+# Install necessary packages
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+# Copy migration binary
+COPY --from=builder /app/migrate ./migrate
+
+# Copy migration files
+COPY --from=builder /app/migrations ./migrations
+
+# Copy migration script
+COPY --from=builder /app/scripts/migrate.sh ./migrate.sh
+RUN chmod +x ./migrate.sh
+
+# Default command
+CMD ["./migrate.sh"]

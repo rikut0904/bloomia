@@ -13,6 +13,85 @@ Bloomiaは中学生の「学びたい」という気持ちを育み、教師の�
 
 ---
 
+## 📊 データベースマイグレーション
+
+### 開発環境での使用方法
+
+```bash
+# マイグレーションディレクトリに移動
+cd backend
+
+# 全ての未適用マイグレーションを実行
+./scripts/dev-migrate.sh up
+
+# 新しいマイグレーションファイルを作成
+./scripts/dev-migrate.sh create add_user_avatar_column
+
+# マイグレーション状態を確認
+./scripts/dev-migrate.sh status
+
+# 最後のマイグレーションをロールバック
+./scripts/dev-migrate.sh down
+
+# ヘルプを表示
+./scripts/dev-migrate.sh help
+```
+
+### 本番環境でのマイグレーション実行
+
+#### 1. GitHub Actions（推奨）
+```bash
+# GitHub Actionsで自動実行
+# 1. GitHubリポジトリの「Actions」タブに移動
+# 2. 「Database Migration」ワークフローを選択
+# 3. 「Run workflow」をクリック
+# 4. マイグレーションコマンドを選択（up/down/status）
+```
+
+#### 2. Railway CLI
+```bash
+# Railway CLIでマイグレーション実行
+railway run --service backend-migrate
+
+# 環境変数を指定してマイグレーション実行
+MIGRATION_COMMAND=up railway run --service backend-migrate
+```
+
+#### 3. Docker
+```bash
+# Dockerでマイグレーション実行
+docker build -f Dockerfile.migrate -t bloomia-migrate .
+docker run --env DATABASE_URL=$DATABASE_URL --env MIGRATION_COMMAND=up bloomia-migrate
+```
+
+### マイグレーションファイルの作成
+
+マイグレーションファイルは以下の形式で作成されます：
+
+```sql
+-- +migrate Up
+-- ここにマイグレーション内容を記述
+
+CREATE TABLE example_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- +migrate Down  
+-- ここにロールバック内容を記述
+
+DROP TABLE IF EXISTS example_table;
+```
+
+### マイグレーション管理
+
+- ファイル名形式: `YYYYMMDDHHMMSS_migration_name.sql`
+- `schema_migrations`テーブルで適用状況を管理
+- 本番環境では自動的にmainブランチへのpush時にマイグレーション実行
+
+---
+
 ## 🏗️ システムアーキテクチャ
 
 ### 技術スタック

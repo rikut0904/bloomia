@@ -1,0 +1,85 @@
+name: Database Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Migration command'
+        required: true
+        default: 'up'
+        type: choice
+        options:
+          - up
+          - down
+          - status
+      migration_name:
+        description: 'Migration name (for create command)'
+        required: false
+        type: string
+
+  push:
+    branches: [main]
+    paths:
+      - 'backend/migrations/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      working-directory: ./backend
+      run: go mod download
+      
+    - name: Run migrations (auto on main push)
+      if: github.event_name == 'push'
+      working-directory: ./backend
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        echo "Running automatic migration on main branch push..."
+        go run cmd/migrate/main.go -cmd=up
+        
+    - name: Run migrations (manual trigger)
+      if: github.event_name == 'workflow_dispatch'
+      working-directory: ./backend
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        MIGRATION_COMMAND: ${{ github.event.inputs.command }}
+        MIGRATION_NAME: ${{ github.event.inputs.migration_name }}
+      run: |
+        echo "Running manual migration command: $MIGRATION_COMMAND"
+        if [ "$MIGRATION_COMMAND" = "create" ] && [ -n "$MIGRATION_NAME" ]; then
+          go run cmd/migrate/main.go -cmd=create -name="$MIGRATION_NAME"
+        else
+          go run cmd/migrate/main.go -cmd=$MIGRATION_COMMAND
+        fi
+        
+    - name: Commit new migration files (if created)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.command == 'create'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add backend/migrations/
+        if git diff --staged --quiet; then
+          echo "No new migration files to commit"
+        else
+          git commit -m "Add migration: ${{ github.event.inputs.migration_name }}"
+          git push
+        fi
