@@ -1,5 +1,4 @@
 name: Database Migration
-
 on:
   workflow_dispatch:
     inputs:
@@ -16,16 +15,13 @@ on:
         description: 'Migration name (for create command)'
         required: false
         type: string
-
   push:
     branches: [main]
     paths:
       - 'backend/migrations/**'
-
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -34,7 +30,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
-        
     - name: Cache Go modules
       uses: actions/cache@v3
       with:
@@ -42,11 +37,9 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-          
     - name: Install dependencies
       working-directory: ./backend
       run: go mod download
-      
     - name: Run migrations (auto on main push)
       if: github.event_name == 'push'
       working-directory: ./backend
@@ -55,7 +48,6 @@ jobs:
       run: |
         echo "Running automatic migration on main branch push..."
         go run cmd/migrate/main.go -cmd=up
-        
     - name: Run migrations (manual trigger)
       if: github.event_name == 'workflow_dispatch'
       working-directory: ./backend
@@ -70,7 +62,6 @@ jobs:
         else
           go run cmd/migrate/main.go -cmd=$MIGRATION_COMMAND
         fi
-        
     - name: Commit new migration files (if created)
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.command == 'create'
       run: |
