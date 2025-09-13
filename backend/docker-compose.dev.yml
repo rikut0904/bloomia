@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Development backend
+  backend-dev:
+    build:
+      context: .
+      target: development
+      args:
+        - ENVIRONMENT=development
+        - GO_VERSION=1.23
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/bloomia_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - PORT=8080
+      - FRONTEND_URL=http://localhost:3000
+      - ENVIRONMENT=development
+      - DISABLE_AUTH=true
+    volumes:
+      - .:/app
+      - /app/server  # Exclude binary from volume mount
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    profiles:
+      - dev
+
+  # Production-like backend (for testing)
+  backend-prod:
+    build:
+      context: .
+      target: production
+      args:
+        - ENVIRONMENT=production
+        - GO_VERSION=1.23
+    ports:
+      - "8081:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/bloomia_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - PORT=8080
+      - FRONTEND_URL=http://localhost:3000
+      - ENVIRONMENT=production
+      - DISABLE_AUTH=false
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=bloomia_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Migration service (using unified Dockerfile)
+  migrate:
+    build:
+      context: .
+      target: development
+      args:
+        - ENVIRONMENT=development
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/bloomia_dev?sslmode=disable
+      - MIGRATION_COMMAND=up
+    command: ["sh", "-c", "go run cmd/migrate/main.go -cmd=$${MIGRATION_COMMAND:-up}"]
+    depends_on:
+      - postgres
+    profiles:
+      - migration  # Only run when explicitly requested
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,35 +1,32 @@
-# Migration Dockerfile
-FROM golang:1.21-alpine AS builder
+# Migration Dockerfile using unified Dockerfile
+# This extends the base development stage to create a migration-specific container
 
-WORKDIR /app
+# Use the unified Dockerfile development stage as base
+FROM bloomia-backend:development AS migration-base
 
-# Copy go mod files
-COPY go.mod go.sum ./
-RUN go mod download
+# Switch back to root to install additional tools
+USER root
 
-# Copy source code
-COPY . .
+# Install migration-specific tools
+RUN apk add --no-cache \
+    postgresql-client \
+    bash
+
+# Copy migration script and make it executable
+COPY scripts/migrate.sh ./migrate.sh
+RUN chmod +x ./migrate.sh
+
+# Create migrations directory if it doesn't exist
+RUN mkdir -p ./migrations
+
+# Copy migration files
+COPY migrations/ ./migrations/
 
 # Build migration binary
 RUN go build -o migrate cmd/migrate/main.go
 
-# Final stage
-FROM alpine:latest
+# Switch back to developer user
+USER developer
 
-# Install necessary packages
-RUN apk --no-cache add ca-certificates tzdata
-
-WORKDIR /app
-
-# Copy migration binary
-COPY --from=builder /app/migrate ./migrate
-
-# Copy migration files
-COPY --from=builder /app/migrations ./migrations
-
-# Copy migration script
-COPY --from=builder /app/scripts/migrate.sh ./migrate.sh
-RUN chmod +x ./migrate.sh
-
-# Default command
+# Default command runs migration script
 CMD ["./migrate.sh"]
