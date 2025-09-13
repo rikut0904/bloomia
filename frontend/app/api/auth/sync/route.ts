@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     // バックエンドの認証同期APIを呼び出し
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    const backendUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     const response = await fetch(`${backendUrl}/api/v1/auth/sync`, {
       method: 'POST',
       headers: {
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     // バックエンドAPIからユーザー情報を取得
-    const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+    const backendUrl = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     const response = await fetch(`${backendUrl}/api/v1/auth/sync?uid=${firebaseUid}`, {
       method: 'GET',
       headers: {

@@ -1,16 +1,17 @@
 package admin
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
+    "context"
+    "database/sql"
+    "fmt"
+    "time"
 
 	"github.com/rikut0904/bloomia/backend/internal/domain/entities"
 	"github.com/rikut0904/bloomia/backend/internal/domain/repositories"
 )
 
 type adminRepository struct {
-	db *sql.DB
+    db *sql.DB
 }
 
 func NewAdminRepository(db *sql.DB) repositories.AdminRepository {
@@ -195,40 +196,45 @@ func (r *adminRepository) GetAllSchools(ctx context.Context) ([]entities.SchoolO
 	}
 	defer rows.Close()
 	
-	var schools []entities.SchoolOption
-	for rows.Next() {
-		var school entities.SchoolOption
-		err := rows.Scan(&school.ID, &school.Name, &school.Code)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan school: %w", err)
-		}
-		schools = append(schools, school)
-	}
+    var schools []entities.SchoolOption
+    for rows.Next() {
+        var school entities.SchoolOption
+        var id int64
+        err := rows.Scan(&id, &school.Name, &school.Code)
+        if err != nil {
+            return nil, fmt.Errorf("failed to scan school: %w", err)
+        }
+        school.ID = fmt.Sprintf("%d", id)
+        schools = append(schools, school)
+    }
 	
 	return schools, nil
 }
 
 func (r *adminRepository) GetUserStatsByRole(ctx context.Context, schoolID *string) (map[string]int, error) {
-	query := `
+	// Role別のユーザー数を取得
+	roleQuery := `
 		SELECT role, COUNT(*) as count
 		FROM users
 	`
 	args := []interface{}{}
 	
 	if schoolID != nil {
-		query += " WHERE school_id = $1"
+		roleQuery += " WHERE school_id = $1"
 		args = append(args, *schoolID)
 	}
 	
-	query += " GROUP BY role"
+	roleQuery += " GROUP BY role"
 	
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, roleQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query user stats: %w", err)
 	}
 	defer rows.Close()
 	
 	stats := make(map[string]int)
+	totalUsers := 0
+	
 	for rows.Next() {
 		var role string
 		var count int
@@ -237,7 +243,42 @@ func (r *adminRepository) GetUserStatsByRole(ctx context.Context, schoolID *stri
 			return nil, fmt.Errorf("failed to scan user stats: %w", err)
 		}
 		stats[role] = count
+		totalUsers += count
 	}
 	
-	return stats, nil
+	// 総ユーザー数を追加
+	stats["total_users"] = totalUsers
+	
+	// 学校統計を取得
+	schoolQuery := `SELECT COUNT(*) FROM schools`
+	var totalSchools int
+	err = r.db.QueryRowContext(ctx, schoolQuery).Scan(&totalSchools)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query school count: %w", err)
+	}
+	stats["total_schools"] = totalSchools
+	stats["active_schools"] = totalSchools // 現在の実装では全学校がアクティブと仮定
+	
+	// 学生数（student role）を total_students として追加
+	if studentCount, exists := stats["student"]; exists {
+		stats["total_students"] = studentCount
+	} else {
+		stats["total_students"] = 0
+	}
+	
+    return stats, nil
+}
+
+// CreateUserInvitation inserts a user invitation into user_invitations table
+func (r *adminRepository) CreateUserInvitation(ctx context.Context, name, email, role, schoolID, message, token string, expiresAt time.Time) error {
+    // schoolID is string; convert to SQL parameter as-is since column is BIGINT
+    query := `
+        INSERT INTO user_invitations (name, email, role, school_id, message, status, token, expires_at, created_at, updated_at)
+        VALUES ($1, $2, $3, $4::bigint, $5, 'pending', $6, $7, NOW(), NOW())
+    `
+    _, err := r.db.ExecContext(ctx, query, name, email, role, schoolID, message, token, expiresAt)
+    if err != nil {
+        return fmt.Errorf("failed to create user invitation: %w", err)
+    }
+    return nil
 }

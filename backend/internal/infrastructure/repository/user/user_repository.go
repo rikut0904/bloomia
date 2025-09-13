@@ -18,31 +18,20 @@ func NewUserRepository(db *sql.DB) repositories.UserRepository {
 }
 
 func (r *userRepository) FindByUID(ctx context.Context, uid string) (*entities.User, error) {
-	query := `
-		SELECT id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
-			   student_number, grade, is_active, is_approved, ui_preferences, 
-			   last_login_at, created_at, updated_at
-		FROM users 
-		WHERE firebase_uid = $1 AND is_active = true
-	`
+    query := `
+        SELECT id, firebase_uid, name as display_name, email, role, school_id::text as school_id, created_at, updated_at
+        FROM users 
+        WHERE firebase_uid = $1
+    `
 	
 	var user entities.User
 	err := r.db.QueryRowContext(ctx, query, uid).Scan(
 		&user.ID,
 		&user.FirebaseUID,
-		&user.Name,
-		&user.Furigana,
+		&user.DisplayName,
 		&user.Email,
-		&user.AvatarURL,
 		&user.Role,
 		&user.SchoolID,
-		&user.ClassID,
-		&user.StudentNumber,
-		&user.Grade,
-		&user.IsActive,
-		&user.IsApproved,
-		&user.UIPreferences,
-		&user.LastLoginAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -58,31 +47,20 @@ func (r *userRepository) FindByUID(ctx context.Context, uid string) (*entities.U
 }
 
 func (r *userRepository) FindByEmail(ctx context.Context, email string) (*entities.User, error) {
-	query := `
-		SELECT id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
-			   student_number, grade, is_active, is_approved, ui_preferences, 
-			   last_login_at, created_at, updated_at
-		FROM users 
-		WHERE email = $1 AND is_active = true
-	`
+    query := `
+        SELECT id, firebase_uid, name as display_name, email, role, school_id::text as school_id, created_at, updated_at
+        FROM users 
+        WHERE email = $1
+    `
 	
 	var user entities.User
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.FirebaseUID,
-		&user.Name,
-		&user.Furigana,
+		&user.DisplayName,
 		&user.Email,
-		&user.AvatarURL,
 		&user.Role,
 		&user.SchoolID,
-		&user.ClassID,
-		&user.StudentNumber,
-		&user.Grade,
-		&user.IsActive,
-		&user.IsApproved,
-		&user.UIPreferences,
-		&user.LastLoginAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -98,27 +76,18 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*entiti
 }
 
 func (r *userRepository) Create(ctx context.Context, user *entities.User) error {
-	query := `
-		INSERT INTO users (firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
-						   student_number, grade, ui_preferences, is_active, is_approved)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-		RETURNING id, created_at, updated_at
-	`
+    query := `
+        INSERT INTO users (firebase_uid, name, email, role, school_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5::bigint, NOW(), NOW())
+        RETURNING id, created_at, updated_at
+    `
 
 	err := r.db.QueryRowContext(ctx, query,
 		user.FirebaseUID,
-		user.Name,
-		user.Furigana,
+		user.DisplayName,
 		user.Email,
-		user.AvatarURL,
 		user.Role,
 		user.SchoolID,
-		user.ClassID,
-		user.StudentNumber,
-		user.Grade,
-		user.UIPreferences,
-		user.IsActive,
-		user.IsApproved,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
@@ -131,25 +100,17 @@ func (r *userRepository) Create(ctx context.Context, user *entities.User) error 
 func (r *userRepository) Update(ctx context.Context, user *entities.User) error {
 	query := `
 		UPDATE users 
-		SET name = $2, furigana = $3, email = $4, avatar_url = $5, role = $6, 
-			class_id = $7, student_number = $8, grade = $9, ui_preferences = $10, 
-			is_approved = $11, updated_at = NOW()
-		WHERE firebase_uid = $1 AND is_active = true
-		RETURNING updated_at
-	`
+        SET name = $2, email = $3, role = $4, school_id = $5::bigint, updated_at = NOW()
+        WHERE firebase_uid = $1
+        RETURNING updated_at
+    `
 
 	err := r.db.QueryRowContext(ctx, query,
 		user.FirebaseUID,
-		user.Name,
-		user.Furigana,
+		user.DisplayName,
 		user.Email,
-		user.AvatarURL,
 		user.Role,
-		user.ClassID,
-		user.StudentNumber,
-		user.Grade,
-		user.UIPreferences,
-		user.IsApproved,
+		user.SchoolID,
 	).Scan(&user.UpdatedAt)
 
 	if err != nil {
@@ -165,8 +126,8 @@ func (r *userRepository) Update(ctx context.Context, user *entities.User) error 
 func (r *userRepository) UpdateLastLogin(ctx context.Context, uid string) error {
 	query := `
 		UPDATE users 
-		SET last_login_at = NOW() 
-		WHERE firebase_uid = $1 AND is_active = true
+		SET updated_at = NOW() 
+		WHERE firebase_uid = $1
 	`
 
 	_, err := r.db.ExecContext(ctx, query, uid)
@@ -178,140 +139,37 @@ func (r *userRepository) UpdateLastLogin(ctx context.Context, uid string) error 
 }
 
 func (r *userRepository) FindSchoolByID(ctx context.Context, schoolID int64) (*entities.School, error) {
-	query := `
-		SELECT id, name, code, email_domain, theme_color, background_color, logo_url,
-			   address, phone_number, settings, is_active, created_at, updated_at
-		FROM schools 
-		WHERE id = $1 AND is_active = true
-	`
-	
-	var school entities.School
-	err := r.db.QueryRowContext(ctx, query, schoolID).Scan(
-		&school.ID,
-		&school.Name,
-		&school.Code,
-		&school.EmailDomain,
-		&school.ThemeColor,
-		&school.BackgroundColor,
-		&school.LogoURL,
-		&school.Address,
-		&school.PhoneNumber,
-		&school.Settings,
-		&school.IsActive,
-		&school.CreatedAt,
-		&school.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("school not found with id: %d", schoolID)
-		}
-		return nil, fmt.Errorf("failed to find school by id: %w", err)
-	}
-
-	return &school, nil
+	// This method will be implemented when school management is needed
+	// For now, return a basic implementation that works with the current schema
+	return nil, fmt.Errorf("school management not yet implemented for current schema")
 }
 
 func (r *userRepository) FindSchoolByEmailDomain(ctx context.Context, domain string) (*entities.School, error) {
-	query := `
-		SELECT id, name, code, email_domain, theme_color, background_color, logo_url,
-			   address, phone_number, settings, is_active, created_at, updated_at
-		FROM schools 
-		WHERE email_domain = $1 AND is_active = true
-	`
-	
-	var school entities.School
-	err := r.db.QueryRowContext(ctx, query, domain).Scan(
-		&school.ID,
-		&school.Name,
-		&school.Code,
-		&school.EmailDomain,
-		&school.ThemeColor,
-		&school.BackgroundColor,
-		&school.LogoURL,
-		&school.Address,
-		&school.PhoneNumber,
-		&school.Settings,
-		&school.IsActive,
-		&school.CreatedAt,
-		&school.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("school not found with domain: %s", domain)
-		}
-		return nil, fmt.Errorf("failed to find school by domain: %w", err)
-	}
-
-	return &school, nil
+	// This method will be implemented when school management is needed
+	return nil, fmt.Errorf("school management not yet implemented for current schema")
 }
 
 func (r *userRepository) FindClassByID(ctx context.Context, classID int64) (*entities.Class, error) {
-	query := `
-		SELECT id, school_id, name, grade, academic_year, homeroom_teacher_id, sub_teacher_id,
-			   max_students, current_students, classroom, class_motto, class_color, 
-			   is_active, created_at, updated_at
-		FROM classes 
-		WHERE id = $1 AND is_active = true
-	`
-	
-	var class entities.Class
-	err := r.db.QueryRowContext(ctx, query, classID).Scan(
-		&class.ID,
-		&class.SchoolID,
-		&class.Name,
-		&class.Grade,
-		&class.AcademicYear,
-		&class.HomeroomTeacherID,
-		&class.SubTeacherID,
-		&class.MaxStudents,
-		&class.CurrentStudents,
-		&class.Classroom,
-		&class.ClassMotto,
-		&class.ClassColor,
-		&class.IsActive,
-		&class.CreatedAt,
-		&class.UpdatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("class not found with id: %d", classID)
-		}
-		return nil, fmt.Errorf("failed to find class by id: %w", err)
-	}
-
-	return &class, nil
+	// This method will be implemented when class management is needed
+	return nil, fmt.Errorf("class management not yet implemented for current schema")
 }
 
 // GetUserByFirebaseUID Firebase UIDでユーザーを取得
 func (r *userRepository) GetUserByFirebaseUID(ctx context.Context, firebaseUID string) (*entities.User, error) {
-	query := `
-		SELECT id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
-			   student_number, grade, is_active, is_approved, ui_preferences, 
-			   last_login_at, created_at, updated_at
-		FROM users 
-		WHERE firebase_uid = $1
-	`
+    query := `
+        SELECT id, firebase_uid, name as display_name, email, role, school_id::text as school_id, created_at, updated_at
+        FROM users 
+        WHERE firebase_uid = $1
+    `
 	
 	var user entities.User
 	err := r.db.QueryRowContext(ctx, query, firebaseUID).Scan(
 		&user.ID,
 		&user.FirebaseUID,
-		&user.Name,
-		&user.Furigana,
+		&user.DisplayName,
 		&user.Email,
-		&user.AvatarURL,
 		&user.Role,
 		&user.SchoolID,
-		&user.ClassID,
-		&user.StudentNumber,
-		&user.Grade,
-		&user.IsActive,
-		&user.IsApproved,
-		&user.UIPreferences,
-		&user.LastLoginAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -328,27 +186,18 @@ func (r *userRepository) GetUserByFirebaseUID(ctx context.Context, firebaseUID s
 
 // CreateUser ユーザーを作成（戻り値として作成されたユーザーを返す）
 func (r *userRepository) CreateUser(ctx context.Context, user *entities.User) (*entities.User, error) {
-	query := `
-		INSERT INTO users (firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
-						   student_number, grade, ui_preferences, is_active, is_approved)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-		RETURNING id, created_at, updated_at
-	`
+    query := `
+        INSERT INTO users (firebase_uid, name, email, role, school_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5::bigint, NOW(), NOW())
+        RETURNING id, created_at, updated_at
+    `
 
 	err := r.db.QueryRowContext(ctx, query,
 		user.FirebaseUID,
-		user.Name,
-		user.Furigana,
+		user.DisplayName,
 		user.Email,
-		user.AvatarURL,
 		user.Role,
 		user.SchoolID,
-		user.ClassID,
-		user.StudentNumber,
-		user.Grade,
-		user.UIPreferences,
-		user.IsActive,
-		user.IsApproved,
 	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 
 	if err != nil {
@@ -359,55 +208,35 @@ func (r *userRepository) CreateUser(ctx context.Context, user *entities.User) (*
 }
 
 // UpdateUser ユーザーを更新（戻り値として更新されたユーザーを返す）
-func (r *userRepository) UpdateUser(ctx context.Context, userID int64, updateData entities.User) (*entities.User, error) {
-	query := `
-		UPDATE users 
-		SET name = $2, furigana = $3, email = $4, avatar_url = $5, role = $6, 
-			school_id = $7, class_id = $8, student_number = $9, grade = $10, 
-			ui_preferences = $11, is_approved = $12, updated_at = NOW()
-		WHERE id = $1 AND is_active = true
-		RETURNING id, firebase_uid, name, furigana, email, avatar_url, role, school_id, class_id, 
-				  student_number, grade, is_active, is_approved, ui_preferences, 
-				  last_login_at, created_at, updated_at
-	`
+func (r *userRepository) UpdateUser(ctx context.Context, userID string, updateData entities.User) (*entities.User, error) {
+    query := `
+        UPDATE users 
+        SET name = $2, email = $3, role = $4, school_id = $5::bigint, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, firebase_uid, name as display_name, email, role, school_id::text as school_id, created_at, updated_at
+    `
 
 	var user entities.User
 	err := r.db.QueryRowContext(ctx, query,
 		userID,
-		updateData.Name,
-		updateData.Furigana,
+		updateData.DisplayName,
 		updateData.Email,
-		updateData.AvatarURL,
 		updateData.Role,
 		updateData.SchoolID,
-		updateData.ClassID,
-		updateData.StudentNumber,
-		updateData.Grade,
-		updateData.UIPreferences,
-		updateData.IsApproved,
 	).Scan(
 		&user.ID,
 		&user.FirebaseUID,
-		&user.Name,
-		&user.Furigana,
+		&user.DisplayName,
 		&user.Email,
-		&user.AvatarURL,
 		&user.Role,
 		&user.SchoolID,
-		&user.ClassID,
-		&user.StudentNumber,
-		&user.Grade,
-		&user.IsActive,
-		&user.IsApproved,
-		&user.UIPreferences,
-		&user.LastLoginAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found for update: %d", userID)
+			return nil, fmt.Errorf("user not found for update: %s", userID)
 		}
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}

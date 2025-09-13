@@ -3,43 +3,27 @@ package entities
 import "time"
 
 type User struct {
-	ID             int64     `json:"id" db:"id"`
-	FirebaseUID    string    `json:"firebase_uid" db:"firebase_uid"` // Firebase UID
-	Name           string    `json:"name" db:"name"`
-	Furigana       *string   `json:"furigana" db:"furigana"`
+	ID             string    `json:"id" db:"id"`                         // UUID primary key
+	FirebaseUID    string    `json:"firebase_uid" db:"firebase_uid"`     // Firebase UID
+	DisplayName    string    `json:"display_name" db:"display_name"`     // User display name
 	Email          string    `json:"email" db:"email"`
-	AvatarURL      *string   `json:"avatar_url" db:"avatar_url"`
 	Role           string    `json:"role" db:"role"`
-	SchoolID       int64     `json:"school_id" db:"school_id"`
-	ClassID        *int64    `json:"class_id" db:"class_id"`
-	StudentNumber  *string   `json:"student_number" db:"student_number"`
-	Grade          *int      `json:"grade" db:"grade"`
-	IsActive       bool      `json:"is_active" db:"is_active"`
-	IsApproved     bool      `json:"is_approved" db:"is_approved"`
-	UIPreferences  string    `json:"ui_preferences" db:"ui_preferences"`
-	LastLoginAt    *time.Time `json:"last_login_at" db:"last_login_at"`
+	SchoolID       string    `json:"school_id" db:"school_id"`           // VARCHAR school ID
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type School struct {
-	ID                  int64     `json:"id" db:"id"`
-	Name                string    `json:"name" db:"name"`
-	Code                string    `json:"code" db:"code"`
-	EmailDomain         *string   `json:"email_domain" db:"email_domain"`
-	ThemeColor          string    `json:"theme_color" db:"theme_color"`
-	BackgroundColor     string    `json:"background_color" db:"background_color"`
-	LogoURL             *string   `json:"logo_url" db:"logo_url"`
-	Address             *string   `json:"address" db:"address"`
-	PhoneNumber         *string   `json:"phone_number" db:"phone_number"`
-	PrincipalName       *string   `json:"principal_name" db:"principal_name"`
-	VicePrincipalName   *string   `json:"vice_principal_name" db:"vice_principal_name"`
-	StudentCapacity     int       `json:"student_capacity" db:"student_capacity"`
-	Settings            string    `json:"settings" db:"settings"`
-	AcademicYearStart   int       `json:"academic_year_start" db:"academic_year_start"`
-	IsActive            bool      `json:"is_active" db:"is_active"`
-	CreatedAt           time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
+	ID          string    `json:"id" db:"id"`                     // UUID primary key
+	SchoolID    string    `json:"school_id" db:"school_id"`       // School identifier
+	SchoolName  string    `json:"school_name" db:"school_name"`   // School name
+	Prefecture  *string   `json:"prefecture" db:"prefecture"`     // Prefecture
+	City        *string   `json:"city" db:"city"`                 // City
+	Address     *string   `json:"address" db:"address"`           // Address
+	Phone       *string   `json:"phone" db:"phone"`               // Phone number
+	Email       *string   `json:"email" db:"email"`               // Email
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type Class struct {

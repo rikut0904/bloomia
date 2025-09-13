@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
+import { buildApiUrl, API_CONFIG } from '@/lib/config';
+import { getIdToken } from '@/lib/auth';
 
 const SCHOOL_TYPES = [
   { value: 'elementary', label: '小学校' },
@@ -52,37 +54,27 @@ export default function CreateSchool() {
     setLoading(true);
 
     try {
-      // TODO: 実際のAPIエンドポイントに接続
-      // const response = await fetch('/api/v1/admin/schools', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     name: formData.name,
-      //     type: formData.type,
-      //     prefecture: formData.prefecture,
-      //     city: formData.city,
-      //     address: formData.address,
-      //     phone: formData.phone,
-      //     email: formData.email,
-      //     website: formData.website,
-      //     principal_name: formData.principalName,
-      //     principal_email: formData.principalEmail,
-      //     description: formData.description,
-      //     student_count: parseInt(formData.studentCount) || 0,
-      //     teacher_count: parseInt(formData.teacherCount) || 0
-      //   })
-      // });
+      const idToken = await getIdToken() || 'test-token';
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ADMIN.SCHOOLS), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        body: JSON.stringify({
+          name: formData.name,
+          type: formData.type,
+          prefecture: formData.prefecture,
+          city: formData.city,
+          address: formData.address,
+          phone: formData.phone,
+          principalName: formData.principalName,
+        })
+      });
 
-      // if (!response.ok) {
-      //   throw new Error('学校の作成に失敗しました');
-      // }
+      if (!response.ok) {
+        throw new Error('学校の作成に失敗しました');
+      }
 
-      // const result = await response.json();
-      // alert(`学校が作成されました。学校ID: ${result.school_id}`);
-
-      // モック成功
-      const mockSchoolId = Math.floor(Math.random() * 1000) + 1000;
-      alert(`学校が作成されました。学校ID: ${mockSchoolId}`);
+      const result = await response.json();
+      alert(`学校が作成されました。学校コード: ${result.code}`);
       router.push('/admin/schools');
     } catch (error) {
       console.error('Failed to create school:', error);

@@ -19,6 +19,7 @@ services:
       - NODE_ENV=development
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+      - API_BASE_URL=http://backend:8080
       - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
       - DEFAULT_BACKGROUND_COLOR=#fdf8f0
       - DEFAULT_THEME_COLOR=#FF7F50

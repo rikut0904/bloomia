@@ -48,6 +48,7 @@ Bloomiaは中学生の「学びたい」という気持ちを育み、教師の�
 ```
 backend/
 ├── cmd/server/              # エントリーポイント
+├── cmd/admincli/            # 管理者アカウント作成CLI
 ├── internal/
 │   ├── domain/              # ドメイン層
 │   │   ├── entities/        # User, Course, Assignment等
@@ -1515,3 +1516,30 @@ console.log('ID Token:', await getIdToken());
 log.Printf("Firebase UID: %s", firebaseUser.UID)
 log.Printf("Role: %s", firebaseUser.Role)
 ```
+## 👤 管理者アカウント作成コマンド
+
+バックエンド（Go）経由で管理者権限アカウントを作成する CLI を用意しています。
+
+- 事前準備: `.env` に `DATABASE_URL` を設定し、DB が起動していること
+- 実行例（ホスト環境から）:
+
+```
+# 必須: --name, --email
+go run ./backend/cmd/admincli --name "System Admin" --email admin@example.com \
+  --school-id 1
+
+# 学校IDが分からない場合、--school-code を指定（なければ自動作成されます）
+go run ./backend/cmd/admincli --name "System Admin" --email admin@example.com \
+  --school-code system
+
+# Firebase UID を指定する場合
+go run ./backend/cmd/admincli --name "System Admin" --email admin@example.com \
+  --school-code system --firebase-uid some-uid
+
+# シェルラッパーも利用できます
+scripts/create-admin.sh --name "System Admin" --email admin@example.com --school-code system
+```
+
+動作仕様:
+- 指定したメールまたは Firebase UID のユーザーが存在する場合は更新（role=admin, is_active/is_approved=true, school_idを設定）。
+- 学校は `--school-id` 優先、次に `--school-code` を解決。どちらも指定が無い場合は `code='system'` の学校を検索し、無ければ自動作成します。

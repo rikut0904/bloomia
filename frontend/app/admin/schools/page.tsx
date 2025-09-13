@@ -95,7 +95,24 @@ export default function SchoolManagement() {
       const data = await response.json();
 
       if (data.schools) {
-        setSchools(data.schools);
+        // 正規化: バックエンドからの最小情報にも対応
+        const normalized = data.schools.map((s: any) => ({
+          id: Number(s.id ?? s.ID ?? 0),
+          name: s.name ?? s.school_name ?? '不明な学校',
+          type: s.type ?? 'junior_high',
+          prefecture: s.prefecture ?? '',
+          city: s.city ?? '',
+          phone: s.phone ?? s.phone_number ?? '',
+          email: s.email ?? '',
+          principal_name: s.principal_name ?? '',
+          student_count: Number(s.student_count ?? 0),
+          teacher_count: Number(s.teacher_count ?? 0),
+          user_count: Number(s.user_count ?? 0),
+          is_active: Boolean(s.is_active ?? true),
+          created_at: s.created_at ?? new Date().toISOString(),
+          updated_at: s.updated_at ?? new Date().toISOString(),
+        }));
+        setSchools(normalized);
       } else {
         throw new Error('Failed to fetch schools');
       }

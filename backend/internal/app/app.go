@@ -63,11 +63,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 	schoolUsecase := usecase.NewSchoolUsecase(schoolRepository, userRepository, cfg)
 	dashboardUsecase := usecase.NewDashboardUsecase(userRepository, cfg)
 	dashboardUsecase.SetDashboardRepository(dashboardRepository)
-	adminUsecase := usecase.NewAdminUsecase(adminRepository, userRepository, cfg)
+    adminUsecase := usecase.NewAdminUsecase(adminRepository, userRepository, cfg)
+    adminUsecase.SetSchoolRepository(schoolRepository)
 
 	// ハンドラー初期化
 	authHandler := httpHandler.NewAuthHandler(authUsecase, cfg)
-	schoolHandler := httpHandler.NewSchoolHandler(schoolUsecase, cfg)
+	schoolHandler := httpHandler.NewSchoolHandler(schoolUsecase)
 	dashboardHandler := httpHandler.NewDashboardHandler(dashboardUsecase)
 	adminHandler := httpHandler.NewAdminHandler(adminUsecase, cfg)
 
@@ -137,8 +138,8 @@ func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, schoolHandler
 			r.Get("/dashboard/stats", dashboardHandler.GetStats)
 		})
 		
-		// 管理者機能（環境変数で認証を制御）
-		r.Group(func(r chi.Router) {
+        // 管理者機能（環境変数で認証を制御）
+        r.Group(func(r chi.Router) {
 			// 本番環境では認証を有効にする
 			if !cfg.DisableAuth && firebaseAuthMiddleware != nil {
 				r.Use(firebaseAuthMiddleware)
@@ -146,16 +147,20 @@ func setupRoutes(r *chi.Mux, authHandler *httpHandler.AuthHandler, schoolHandler
 			
 			// ユーザー管理
 			r.Get("/admin/users", adminHandler.GetAllUsers)
+			r.Get("/admin/users/{id}", adminHandler.GetUserByID)
+			r.Put("/admin/users/{id}", adminHandler.UpdateUser)
 			r.Put("/admin/users/role", adminHandler.UpdateUserRole)
 			r.Put("/admin/users/status", adminHandler.UpdateUserStatus)
 			r.Post("/admin/invite", adminHandler.InviteUser)
 			r.Get("/admin/schools", adminHandler.GetAllSchools)
+            // 学校作成（管理者用）
+            r.Post("/admin/schools", adminHandler.CreateSchool)
 			r.Get("/admin/stats", adminHandler.GetUserStats)
 			
 			// 学校管理
 			r.Post("/schools", schoolHandler.CreateSchool)
-			r.Get("/schools", schoolHandler.GetAllSchools)
-			r.Get("/schools/{id}", schoolHandler.GetSchool)
+			r.Get("/schools", schoolHandler.GetSchools)
+			r.Get("/schools/{id}", schoolHandler.GetSchoolByID)
 			r.Put("/schools/{id}", schoolHandler.UpdateSchool)
 			r.Delete("/schools/{id}", schoolHandler.DeleteSchool)
 			r.Get("/schools/{id}/stats", schoolHandler.GetSchoolStats)

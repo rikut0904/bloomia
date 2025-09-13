@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { buildApiUrl, API_CONFIG } from '@/lib/config';
+import { getIdToken } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +83,10 @@ export default function UserDetails() {
 
   const fetchUserDetails = async () => {
     try {
-      const response = await fetch(`/api/v1/admin/users/${userId}`);
+      const idToken = await getIdToken() || 'test-token';
+      const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.ADMIN.USERS}/${userId}`), {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
       const data = await response.json();
       
       if (data.success) {
@@ -120,17 +125,12 @@ export default function UserDetails() {
 
   const fetchSchools = async () => {
     try {
-      // TODO: 実際のAPIエンドポイントに接続
-      // const response = await fetch('/api/v1/admin/schools');
-      // const data = await response.json();
-      // setSchools(data.schools);
-
-      // モックデータ
-      setSchools([
-        { id: 1, name: 'サンプル高等学校' },
-        { id: 2, name: 'テスト中学校' },
-        { id: 3, name: '花園小学校' }
-      ]);
+      const idToken = await getIdToken() || 'test-token';
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ADMIN.SCHOOLS), {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      const data = await response.json();
+      if (data.schools) setSchools(data.schools.map((s: any) => ({ id: Number(s.id), name: s.name })));
     } catch (error) {
       console.error('Failed to fetch schools:', error);
     } finally {
@@ -142,9 +142,10 @@ export default function UserDetails() {
     if (!user) return;
 
     try {
-      const response = await fetch(`/api/v1/admin/users/${userId}`, {
+      const idToken = await getIdToken() || 'test-token';
+      const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.ADMIN.USERS}/${userId}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify(editFormData)
       });
 

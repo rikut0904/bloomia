@@ -1,9 +1,10 @@
 package repositories
 
 import (
-	"context"
+    "context"
+    "time"
 
-	"github.com/rikut0904/bloomia/backend/internal/domain/entities"
+    "github.com/rikut0904/bloomia/backend/internal/domain/entities"
 )
 
 type UserRepository interface {
@@ -17,7 +18,7 @@ type UserRepository interface {
 	// Firebase認証関連
 	GetUserByFirebaseUID(ctx context.Context, firebaseUID string) (*entities.User, error)
 	CreateUser(ctx context.Context, user *entities.User) (*entities.User, error)
-	UpdateUser(ctx context.Context, userID int64, updateData entities.User) (*entities.User, error)
+	UpdateUser(ctx context.Context, userID string, updateData entities.User) (*entities.User, error)
 	
 	// 学校関連
 	FindSchoolByID(ctx context.Context, schoolID int64) (*entities.School, error)
@@ -36,17 +37,20 @@ type DashboardRepository interface {
 }
 
 type AdminRepository interface {
-	// ユーザー管理
-	GetAllUsers(ctx context.Context, page, perPage int, schoolID *string) ([]entities.UserManagement, int, error)
-	UpdateUserRole(ctx context.Context, userID string, role string, schoolID *string) error
-	UpdateUserStatus(ctx context.Context, userID string, isActive, isApproved bool) error
-	GetUserByID(ctx context.Context, userID string) (*entities.UserManagement, error)
-	
-	// 学校管理
-	GetAllSchools(ctx context.Context) ([]entities.SchoolOption, error)
-	
-	// 統計情報
-	GetUserStatsByRole(ctx context.Context, schoolID *string) (map[string]int, error)
+    // ユーザー管理
+    GetAllUsers(ctx context.Context, page, perPage int, schoolID *string) ([]entities.UserManagement, int, error)
+    UpdateUserRole(ctx context.Context, userID string, role string, schoolID *string) error
+    UpdateUserStatus(ctx context.Context, userID string, isActive, isApproved bool) error
+    GetUserByID(ctx context.Context, userID string) (*entities.UserManagement, error)
+    
+    // 学校管理
+    GetAllSchools(ctx context.Context) ([]entities.SchoolOption, error)
+    
+    // 統計情報
+    GetUserStatsByRole(ctx context.Context, schoolID *string) (map[string]int, error)
+
+    // 招待
+    CreateUserInvitation(ctx context.Context, name, email, role, schoolID, message, token string, expiresAt time.Time) error
 }
 
 type SchoolRepository interface {

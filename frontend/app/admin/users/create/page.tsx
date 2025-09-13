@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { getIdToken } from '@/lib/auth';
+import { buildApiUrl, API_CONFIG } from '@/lib/config';
 
 interface School {
   id: number;
@@ -55,13 +56,11 @@ export default function CreateUser() {
 
   const fetchSchools = async () => {
     try {
-      // Firebase IDトークンを取得
       const idToken = await getIdToken() || 'test-token';
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/v1/admin/schools`, {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ADMIN.SCHOOLS), {
         headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
         }
       });
       const data = await response.json();
@@ -104,10 +103,8 @@ export default function CreateUser() {
     setLoading(true);
 
     try {
-      // Firebase IDトークンを取得
       const idToken = await getIdToken() || 'test-token';
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/v1/admin/invite`, {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.ADMIN.INVITE), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

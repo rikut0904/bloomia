@@ -1,8 +1,9 @@
 package usecase
 
 import (
-	"context"
-	"fmt"
+    "context"
+    "fmt"
+    "time"
 
 	"github.com/rikut0904/bloomia/backend/internal/domain/entities"
 	"github.com/rikut0904/bloomia/backend/internal/domain/repositories"
@@ -10,17 +11,23 @@ import (
 )
 
 type AdminUsecase struct {
-	adminRepo repositories.AdminRepository
-	userRepo  repositories.UserRepository
-	config    *config.Config
+    adminRepo repositories.AdminRepository
+    userRepo  repositories.UserRepository
+    schoolRepo repositories.SchoolRepository
+    config    *config.Config
 }
 
 func NewAdminUsecase(adminRepo repositories.AdminRepository, userRepo repositories.UserRepository, cfg *config.Config) *AdminUsecase {
-	return &AdminUsecase{
-		adminRepo: adminRepo,
-		userRepo:  userRepo,
-		config:    cfg,
-	}
+    return &AdminUsecase{
+        adminRepo: adminRepo,
+        userRepo:  userRepo,
+        config:    cfg,
+    }
+}
+
+// SetSchoolRepository allows injecting SchoolRepository
+func (u *AdminUsecase) SetSchoolRepository(repo repositories.SchoolRepository) {
+    u.schoolRepo = repo
 }
 
 func (u *AdminUsecase) GetAllUsers(ctx context.Context, page, perPage int, schoolID *string, requesterRole string, requesterSchoolID string) (*entities.UserListResponse, error) {
@@ -124,6 +131,50 @@ func (u *AdminUsecase) GetUserStatsByRole(ctx context.Context, schoolID *string,
 	return u.adminRepo.GetUserStatsByRole(ctx, schoolID)
 }
 
+// GetUserByID 管理者用：ユーザー詳細取得
+func (u *AdminUsecase) GetUserByID(ctx context.Context, userID string, requesterRole string, requesterSchoolID string) (*entities.UserManagement, error) {
+    user, err := u.adminRepo.GetUserByID(ctx, userID)
+    if err != nil {
+        return nil, err
+    }
+    if requesterRole == "school_admin" {
+        if user.SchoolID == nil || *user.SchoolID != requesterSchoolID {
+            return nil, fmt.Errorf("insufficient permissions to view this user")
+        }
+    } else if requesterRole != "admin" {
+        return nil, fmt.Errorf("insufficient permissions")
+    }
+    return user, nil
+}
+
+// UpdateUser 管理者用：ユーザー情報更新
+func (u *AdminUsecase) UpdateUser(ctx context.Context, userID string, updateData entities.User, requesterRole string, requesterSchoolID string) (*entities.User, error) {
+    // 役割や学校IDの制約
+    if requesterRole == "school_admin" {
+        // school_admin は自校ユーザーのみ更新可、school_id は自校に限定
+        target, err := u.adminRepo.GetUserByID(ctx, userID)
+        if err != nil {
+            return nil, err
+        }
+        if target.SchoolID == nil || *target.SchoolID != requesterSchoolID {
+            return nil, fmt.Errorf("cannot modify users from other schools")
+        }
+        updateData.SchoolID = requesterSchoolID
+        if updateData.Role == "admin" {
+            return nil, fmt.Errorf("school administrators cannot assign admin role")
+        }
+    } else if requesterRole != "admin" {
+        return nil, fmt.Errorf("insufficient permissions")
+    }
+
+    // 実更新
+    updated, err := u.userRepo.UpdateUser(ctx, userID, updateData)
+    if err != nil {
+        return nil, err
+    }
+    return updated, nil
+}
+
 // 権限チェックヘルパー
 func (u *AdminUsecase) canManageUsers(requesterRole string, targetSchoolID *string, requesterSchoolID string) bool {
 	switch requesterRole {
@@ -157,23 +208,28 @@ func (u *AdminUsecase) InviteUser(ctx context.Context, name, email, role string,
 		return fmt.Errorf("invalid role: %s", role)
 	}
 
-	// 招待処理（実際の実装ではメール送信など）
-	// ここでは仮想的に招待レコードを作成
-	invitation := entities.UserInvitation{
-		Name:     name,
-		Email:    email,
-		Role:     role,
-		SchoolID: schoolID,
-		Message:  message,
-		Status:   "pending",
-	}
+    // 招待レコードをDBに保存
+    token := fmt.Sprintf("inv_%d", time.Now().UnixNano())
+    expiresAt := time.Now().Add(7 * 24 * time.Hour)
 
-	// TODO: 実際の招待処理を実装
-	// - 招待レコードをDBに保存
-	// - 招待メールを送信
-	// - 招待リンクを生成
+    if err := u.adminRepo.CreateUserInvitation(ctx, name, email, role, schoolID, message, token, expiresAt); err != nil {
+        return fmt.Errorf("failed to create user invitation: %w", err)
+    }
 
-	_ = invitation // 仮の使用
+    // TODO: 招待メール送信
+    return nil
+}
 
-	return nil
+// CreateSchool 管理者用 学校作成ユースケース
+func (u *AdminUsecase) CreateSchool(ctx context.Context, school *entities.School) (*entities.School, error) {
+    if school.SchoolName == "" {
+        return nil, fmt.Errorf("school name is required")
+    }
+    if school.SchoolID == "" {
+        return nil, fmt.Errorf("school code is required")
+    }
+    if u.schoolRepo == nil {
+        return nil, fmt.Errorf("school repository not configured")
+    }
+    return u.schoolRepo.CreateSchool(ctx, school)
 }

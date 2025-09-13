@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { buildApiUrl, API_CONFIG } from '@/lib/config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +87,7 @@ export default function SchoolDetails() {
 
   const fetchSchoolDetails = async () => {
     try {
-      const response = await fetch(`/api/v1/admin/schools/${schoolId}`);
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SCHOOLS.DETAIL(schoolId as string)));
       const data = await response.json();
       
       if (data.success) {
@@ -124,7 +125,7 @@ export default function SchoolDetails() {
 
   const fetchSchoolUsers = async () => {
     try {
-      const response = await fetch(`/api/v1/admin/schools/${schoolId}/users`);
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SCHOOLS.USERS(schoolId as string)));
       const data = await response.json();
       
       if (data.success) {
@@ -156,7 +157,7 @@ export default function SchoolDetails() {
     if (!school) return;
 
     try {
-      const response = await fetch(`/api/v1/admin/schools/${schoolId}`, {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SCHOOLS.DETAIL(schoolId as string)), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData)
