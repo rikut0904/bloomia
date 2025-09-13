@@ -8,9 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
-import { getIdToken } from '@/lib/auth';
-import { buildApiUrl, API_CONFIG } from '@/lib/config';
-import { THEME_COLORS } from '@/lib/constants';
+// モック用の定数
+const THEME_COLORS = {
+  primary: '#FF7F50',
+  primaryDark: '#E55A2B',
+  secondary: '#20B2AA'
+};
 
 interface School {
   id: number;
@@ -74,52 +77,8 @@ export default function SchoolManagement() {
 
   const fetchSchools = async () => {
     try {
-      // Firebase IDトークンを取得
-      const idToken = await getIdToken() || 'test-token';
-
-      // クエリパラメータを構築
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (typeFilter !== 'all') params.append('type', typeFilter);
-      if (prefectureFilter !== 'all') params.append('prefecture', prefectureFilter);
-      if (statusFilter !== 'all') {
-        params.append('is_active', statusFilter === 'active' ? 'true' : 'false');
-      }
-
-      const response = await fetch(`${buildApiUrl(API_CONFIG.ENDPOINTS.ADMIN.SCHOOLS)}?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const data = await response.json();
-
-      if (data.schools) {
-        // 正規化: バックエンドからの最小情報にも対応
-        const normalized = data.schools.map((s: any) => ({
-          id: Number(s.id ?? s.ID ?? 0),
-          name: s.name ?? s.school_name ?? '不明な学校',
-          type: s.type ?? 'junior_high',
-          prefecture: s.prefecture ?? '',
-          city: s.city ?? '',
-          phone: s.phone ?? s.phone_number ?? '',
-          email: s.email ?? '',
-          principal_name: s.principal_name ?? '',
-          student_count: Number(s.student_count ?? 0),
-          teacher_count: Number(s.teacher_count ?? 0),
-          user_count: Number(s.user_count ?? 0),
-          is_active: Boolean(s.is_active ?? true),
-          created_at: s.created_at ?? new Date().toISOString(),
-          updated_at: s.updated_at ?? new Date().toISOString(),
-        }));
-        setSchools(normalized);
-      } else {
-        throw new Error('Failed to fetch schools');
-      }
-    } catch (error) {
-      console.error('Failed to fetch schools:', error);
-      // エラー時はモックデータでフォールバック
-      setSchools([
+      // モックデータを直接設定
+      const mockSchools = [
         {
           id: 1,
           name: 'サンプル高等学校',
@@ -135,8 +94,45 @@ export default function SchoolManagement() {
           is_active: true,
           created_at: '2024-01-15T10:00:00Z',
           updated_at: '2024-01-15T10:00:00Z'
+        },
+        {
+          id: 2,
+          name: 'テスト中学校',
+          type: 'junior_high',
+          prefecture: '大阪府',
+          city: '大阪市',
+          phone: '06-1234-5678',
+          email: 'info@test-junior.ac.jp',
+          principal_name: '佐藤花子',
+          student_count: 800,
+          teacher_count: 45,
+          user_count: 845,
+          is_active: true,
+          created_at: '2024-01-20T10:00:00Z',
+          updated_at: '2024-01-20T10:00:00Z'
+        },
+        {
+          id: 3,
+          name: 'デモ小学校',
+          type: 'elementary',
+          prefecture: '神奈川県',
+          city: '横浜市',
+          phone: '045-1234-5678',
+          email: 'info@demo-elementary.ac.jp',
+          principal_name: '山田次郎',
+          student_count: 600,
+          teacher_count: 30,
+          user_count: 630,
+          is_active: false,
+          created_at: '2024-01-25T10:00:00Z',
+          updated_at: '2024-01-25T10:00:00Z'
         }
-      ]);
+      ];
+
+      setSchools(mockSchools);
+    } catch (error) {
+      console.error('Failed to fetch schools:', error);
+      setSchools([]);
     } finally {
       setLoading(false);
     }

@@ -117,12 +117,10 @@ func (u *AuthUsecase) RegisterUser(ctx context.Context, token, name, email, pass
 
 	// ユーザー作成
 	user := &entities.User{
-		Name:         name,
+		DisplayName:  name,
 		Email:        email,
 		Role:         invitation.Role,
-		SchoolID:     schoolIDInt,
-		IsActive:     true,
-		IsApproved:   true, // 招待されたユーザーは自動承認
+		SchoolID:     fmt.Sprintf("%d", schoolIDInt), // Convert to string
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -152,24 +150,15 @@ func (u *AuthUsecase) LoginUser(ctx context.Context, email, password string) (*e
 
 	// モックデータ
 	user := &entities.User{
-		ID:         1,
-		Name:       "テストユーザー",
-		Email:      email,
-		Role:       "student",
-		SchoolID:   1,
-		IsActive:   true,
-		IsApproved: true,
+		ID:          "test-uuid-1",
+		DisplayName: "テストユーザー",
+		Email:       email,
+		Role:        "student",
+		SchoolID:    "1",
 	}
 
-	// アクティブ状態チェック
-	if !user.IsActive {
-		return nil, fmt.Errorf("account is deactivated")
-	}
-
-	// 承認状態チェック
-	if !user.IsApproved {
-		return nil, fmt.Errorf("account is not approved")
-	}
+	// アクティブ状態チェック（現在のスキーマでは省略）
+	// TODO: アクティブ状態チェックの実装
 
 	// TODO: パスワード検証
 	// err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
@@ -191,16 +180,13 @@ func (u *AuthUsecase) SyncUser(ctx context.Context, firebaseUID, email string, d
 		}
 		
 		if displayName != nil {
-			updateData.Name = *displayName
+			updateData.DisplayName = *displayName
 		}
 		if role != nil {
 			updateData.Role = *role
 		}
 		if schoolID != nil {
-			schoolIDInt, err := strconv.ParseInt(*schoolID, 10, 64)
-			if err == nil {
-				updateData.SchoolID = schoolIDInt
-			}
+			updateData.SchoolID = *schoolID // Use string directly
 		}
 		
 		updatedUser, err := u.userRepo.UpdateUser(ctx, existingUser.ID, updateData)
@@ -215,26 +201,21 @@ func (u *AuthUsecase) SyncUser(ctx context.Context, firebaseUID, email string, d
 	newUser := &entities.User{
 		FirebaseUID: firebaseUID,
 		Email:       email,
-		Name:        email, // デフォルトはメールアドレス
+		DisplayName: email, // デフォルトはメールアドレス
 		Role:        "student", // デフォルトロール
-		SchoolID:    1,  // デフォルト学校ID
-		IsActive:    true,
-		IsApproved:  true,
+		SchoolID:    "1",  // デフォルト学校ID
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 	
 	if displayName != nil && *displayName != "" {
-		newUser.Name = *displayName
+		newUser.DisplayName = *displayName
 	}
 	if role != nil {
 		newUser.Role = *role
 	}
 	if schoolID != nil {
-		schoolIDInt, err := strconv.ParseInt(*schoolID, 10, 64)
-		if err == nil {
-			newUser.SchoolID = schoolIDInt
-		}
+		newUser.SchoolID = *schoolID // Use string directly
 	}
 	
 	createdUser, err := u.userRepo.CreateUser(ctx, newUser)

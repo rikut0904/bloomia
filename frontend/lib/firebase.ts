@@ -14,20 +14,34 @@ const firebaseConfig = {
 let app: any = null;
 let auth: any = null;
 
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
+// Firebase設定の検証
+const requiredConfig = [
+  'apiKey',
+  'authDomain', 
+  'projectId',
+  'storageBucket',
+  'messagingSenderId',
+  'appId'
+];
 
-  // 開発環境でAuth エミュレーターを使用（オプション）
-  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-    // Auth エミュレーター（実際のFirebaseを使用する場合はコメントアウト）
-    // if (!auth.emulatorConfig) {
-    //   connectAuthEmulator(auth, 'http://localhost:9099');
-    // }
-  }
-} catch (error) {
-  console.warn('Firebase Authentication initialization failed:', error);
+const missingConfig = requiredConfig.filter(key => !firebaseConfig[key as keyof typeof firebaseConfig]);
+
+if (missingConfig.length > 0) {
+  throw new Error(`Missing Firebase configuration: ${missingConfig.join(', ')}`);
 }
+
+app = initializeApp(firebaseConfig);
+auth = getAuth(app);
+
+// 開発環境でAuth エミュレーターを使用（オプション）
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+  // Auth エミュレーター（実際のFirebaseを使用する場合はコメントアウト）
+  // if (!auth.emulatorConfig) {
+  //   connectAuthEmulator(auth, 'http://localhost:9099');
+  // }
+}
+
+console.log('Firebase Authentication initialized successfully');
 
 export { auth };
 export default app;

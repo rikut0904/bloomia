@@ -1,7 +1,8 @@
 // API設定
 export const API_CONFIG = {
     // 環境変数でAPI URLを制御
-    BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ||
+    // NEXT_PUBLIC_API_URL を優先し、なければ NEXT_PUBLIC_API_BASE_URL を参照
+    BASE_URL: (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL) ||
         (process.env.NODE_ENV === 'production'
             ? 'https://api.bloomia.com'  // 本番環境のデフォルト
             : 'http://localhost:8080'),  // 開発環境のデフォルト
@@ -10,6 +11,7 @@ export const API_CONFIG = {
         AUTH: {
             SYNC: '/api/v1/auth/sync',
             REGISTER: '/api/v1/auth/register',
+            VERIFY: '/api/v1/auth/verify',
         },
         ADMIN: {
             STATS: '/api/v1/admin/stats',
@@ -34,6 +36,4 @@ export const API_CONFIG = {
 };
 
 // API URLを構築するヘルパー関数
-export const buildApiUrl = (endpoint: string): string => {
-    return `${API_CONFIG.BASE_URL}${endpoint}`;
-};
+export const buildApiUrl = (endpoint: string): string => `${API_CONFIG.BASE_URL}${endpoint}`;

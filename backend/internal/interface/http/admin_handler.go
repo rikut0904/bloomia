@@ -1,11 +1,14 @@
 package http
 
 import (
-	"net/http"
+    "net/http"
+    "encoding/json"
+    "strings"
 
-	"github.com/rikut0904/bloomia/backend/internal/domain/entities"
-	"github.com/rikut0904/bloomia/backend/internal/infrastructure/config"
-	"github.com/rikut0904/bloomia/backend/internal/usecase"
+    "github.com/go-chi/chi/v5"
+    "github.com/rikut0904/bloomia/backend/internal/domain/entities"
+    "github.com/rikut0904/bloomia/backend/internal/infrastructure/config"
+    "github.com/rikut0904/bloomia/backend/internal/usecase"
 )
 
 type AdminHandler struct {
@@ -131,4 +134,132 @@ func (h *AdminHandler) InviteUser(w http.ResponseWriter, r *http.Request) {
 			return nil
 		},
 	)
+}
+
+// GetUserByID 管理者用：ユーザー詳細
+func (h *AdminHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+    h.HandleWithAuth(w, r, http.MethodGet, func(w http.ResponseWriter, r *http.Request, authCtx AuthContext) error {
+        userID := chi.URLParam(r, "id")
+        if userID == "" {
+            h.SendErrorResponse(w, "user id required", http.StatusBadRequest)
+            return nil
+        }
+
+        user, err := h.adminUsecase.GetUserByID(r.Context(), userID, authCtx.RequesterRole, authCtx.RequesterSchoolID)
+        if err != nil {
+            return err
+        }
+        h.SendJSONResponse(w, map[string]interface{}{"success": true, "user": user}, http.StatusOK)
+        return nil
+    })
+}
+
+// UpdateUser 管理者用：ユーザー更新
+func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+    h.HandleWithAuth(w, r, http.MethodPut, func(w http.ResponseWriter, r *http.Request, authCtx AuthContext) error {
+        var req struct {
+            Name     *string `json:"name"`
+            Email    *string `json:"email"`
+            Role     *string `json:"role"`
+            SchoolID *string `json:"school_id"`
+        }
+        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+            h.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+            return nil
+        }
+        userID := strings.TrimPrefix(r.URL.Path, "/api/v1/admin/users/")
+        if userID == "" {
+            h.SendErrorResponse(w, "user id required", http.StatusBadRequest)
+            return nil
+        }
+
+        update := entities.User{}
+        if req.Name != nil { update.DisplayName = *req.Name }
+        if req.Email != nil { update.Email = *req.Email }
+        if req.Role != nil { update.Role = *req.Role }
+        if req.SchoolID != nil { update.SchoolID = *req.SchoolID }
+
+        updated, err := h.adminUsecase.UpdateUser(r.Context(), userID, update, authCtx.RequesterRole, authCtx.RequesterSchoolID)
+        if err != nil {
+            return err
+        }
+        h.SendJSONResponse(w, map[string]interface{}{"success": true, "user": updated}, http.StatusOK)
+        return nil
+    })
+}
+
+// AdminCreateSchoolRequest 管理者用 学校作成リクエスト
+type AdminCreateSchoolRequest struct {
+    Name           string  `json:"name"`
+    Type           *string `json:"type,omitempty"`
+    Prefecture     *string `json:"prefecture,omitempty"`
+    City           *string `json:"city,omitempty"`
+    Address        *string `json:"address,omitempty"`
+    Phone          *string `json:"phone,omitempty"`
+    PrincipalName  *string `json:"principalName,omitempty"`
+    StudentCount   *int    `json:"studentCount,omitempty"`
+}
+
+// CreateSchool 管理者用に学校を作成（READMEのスキーマに準拠）
+func (h *AdminHandler) CreateSchool(w http.ResponseWriter, r *http.Request) {
+    h.HandleWithAuth(w, r, http.MethodPost, func(w http.ResponseWriter, r *http.Request, authCtx AuthContext) error {
+        if authCtx.RequesterRole != "admin" && authCtx.RequesterRole != "school_admin" {
+            h.SendErrorResponse(w, "insufficient permissions", http.StatusForbidden)
+            return nil
+        }
+
+        var req AdminCreateSchoolRequest
+        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+            h.SendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+            return nil
+        }
+        if req.Name == "" {
+            h.SendErrorResponse(w, "name is required", http.StatusBadRequest)
+            return nil
+        }
+
+        // コード生成（name から slug）
+        code := generateCodeFromName(req.Name)
+        // 住所はプレーンに連結
+        var fullAddress *string
+        if req.Address != nil || req.Prefecture != nil || req.City != nil {
+            addr := ""
+            if req.Prefecture != nil { addr += *req.Prefecture }
+            if req.City != nil { addr += *req.City }
+            if req.Address != nil { addr += *req.Address }
+            if addr != "" { fullAddress = &addr }
+        }
+
+        school := &entities.School{
+            SchoolID:   code,
+            SchoolName: req.Name,
+            Address:    fullAddress,
+            Phone:      req.Phone,
+        }
+
+        created, err := h.adminUsecase.CreateSchool(r.Context(), school)
+        if err != nil {
+            return err
+        }
+
+        h.SendJSONResponse(w, created, http.StatusCreated)
+        return nil
+    })
+}
+
+func generateCodeFromName(name string) string {
+    code := ""
+    for _, r := range name {
+        if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+            code += string(r)
+        } else if r >= 'A' && r <= 'Z' {
+            code += string(r + 32)
+        } else if r == ' ' || r == '　' {
+            code += "-"
+        }
+    }
+    if code == "" {
+        code = "school"
+    }
+    return code
 }
